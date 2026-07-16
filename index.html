@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maestro V — Alpha Omega Collective · Live Visual Engine</title>
+  <meta name="description" content="Maestro V — audio-reactive live visual engine for DJs and performers. 16 scenes, mic or sound-card reactive, zero dependencies, runs offline. An Alpha Omega Collective product." />
+  <meta id="themeColor" name="theme-color" content="#C6F000" />
+  <meta property="og:title" content="Maestro V — Alpha Omega Collective" />
+  <meta property="og:description" content="Audio-reactive live visual engine for DJs. 16 scenes · Hybrid Mix · beat automation · text projection. Zero dependencies, runs offline." />
+  <meta property="og:type" content="website" />
+  <link id="favicon" rel="icon" href="data:," />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/style.css?v=107" />
+</head>
+<body>
+  <div id="stage">
+    <canvas id="threeCanvas" aria-label="3D visual layer"></canvas>
+    <canvas id="pixiCanvas" aria-label="2D visual layer"></canvas>
+  </div>
+
+  <button id="hudTab" class="hud-tab" type="button" aria-label="Toggle tools panel" title="Toggle tools panel"><span>HUD</span></button>
+
+  <aside id="hud" class="hud open v90-organised">
+    <header class="hud-header">
+      <div class="brand-row">
+        <canvas id="brandMark" width="52" height="52" aria-hidden="true"></canvas>
+        <div>
+          <h1>MAESTRO V</h1>
+          <p class="brand-sub"><span class="brand-aoc">ALPHA OMEGA COLLECTIVE</span> · V107</p>
+        </div>
+      </div>
+      <div class="brand-right">
+        <span id="statusPill" class="status-pill">READY</span>
+        <div id="channelDots" class="ch-dots" role="radiogroup" aria-label="Brand channel"></div>
+      </div>
+    </header>
+
+    <section class="panel performance-panel panel-live panel-open" data-panel-title="Performance">
+      <h2>Performance</h2>
+      <div class="button-grid">
+        <button id="startMicButton" type="button">Start Mic</button>
+        <button id="startSystemAudioButton" type="button">Sound Card</button>
+        <button id="audioSourceButton" type="button">Source: Mic</button>
+        <button id="beatFxButton" type="button">Beat FX Off</button>
+        <button id="beatFxFourButton" type="button">4-Beat FX Off</button>
+        <button id="randomizeButton" type="button">Randomise Visuals</button>
+        <button id="colorBeatFxButton" type="button">2-Bar Colour FX Off</button>
+        <button id="perfButton" type="button">Perf: Balanced</button>
+        <button id="resetCameraButton" type="button">Reset Camera</button>
+      </div>
+      <div id="controlStatus" class="control-status">System ready</div>
+      <div class="live-cockpit">
+        <div><span>Scene</span><strong id="liveSceneName">Hybrid-ready</strong></div>
+        <div><span>Audio</span><strong id="liveAudioState">Waiting</strong></div>
+        <div><span>Perf</span><strong id="livePerfState">Balanced</strong></div>
+      </div>
+      <label for="sceneSelect">Scene</label>
+      <select id="sceneSelect"></select>
+    </section>
+
+    <section class="panel panel-mixer panel-collapsed" data-panel-title="Scene Mixer">
+      <h2>Scene Mixer</h2>
+      <div class="panel-note">Select which scenes can appear in Hybrid Mix.</div>
+      <div id="sceneMixerControls" class="toggle-grid"></div>
+    </section>
+
+    <section class="panel panel-transition panel-collapsed" data-panel-title="Scene Transition">
+      <h2>Scene Transition</h2>
+      <div class="button-grid">
+        <button id="transitionToggleButton" type="button">Transition Off</button>
+        <button id="transitionTriggerButton" type="button">Trigger Next</button>
+      </div>
+      <div class="inline-row">
+        <div>
+          <label for="transitionTypeSelect">Type</label>
+          <select id="transitionTypeSelect">
+            <option value="sequence">Sequence</option>
+            <option value="random">Random</option>
+          </select>
+        </div>
+        <div>
+          <label for="transitionSecondsInput">Gap Sec</label>
+          <input id="transitionSecondsInput" type="number" min="4" max="120" step="1" value="18" />
+        </div>
+      </div>
+    </section>
+
+
+
+    <section class="panel panel-automation panel-open" data-panel-title="Beat Automation">
+      <h2>Beat Automation</h2>
+      <div class="panel-note">Automate scene changes, active-scene randomisation, and live event triggers using detected beat / bass pulses.</div>
+      <div class="button-grid">
+        <button id="automationToggleButton" type="button">Automation Off</button>
+        <button id="automationTriggerEventButton" type="button">Trigger Auto Event</button>
+        <button id="automationRandomiseButton" type="button">Randomise Active Scene</button>
+      </div>
+      <div class="inline-row">
+        <div>
+          <label for="automationSceneEveryInput">Scene Every Beats</label>
+          <input id="automationSceneEveryInput" type="number" min="0" max="128" step="1" value="32" />
+        </div>
+        <div>
+          <label for="automationEventEveryInput">Event Every Beats</label>
+          <input id="automationEventEveryInput" type="number" min="0" max="64" step="1" value="8" />
+        </div>
+      </div>
+      <div class="inline-row">
+        <div>
+          <label for="automationRandomEveryInput">Randomise Every Beats</label>
+          <input id="automationRandomEveryInput" type="number" min="0" max="128" step="1" value="16" />
+        </div>
+        <div>
+          <label>Automation Status</label>
+          <div class="panel-note compact-note"><span id="automationReadout">Off</span> · Beat <span id="automationBeatCounter">0</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel panel-monitor panel-open" data-panel-title="Performance Monitor">
+      <h2>Performance Monitor</h2>
+      <div class="panel-note">Live runtime readout for FPS, active scene, audio source, hybrid load, and state-heavy scene counts.</div>
+      <div class="monitor-grid">
+        <div><span>FPS</span><strong id="monitorFps">--</strong></div>
+        <div><span>Frame</span><strong id="monitorFrameMs">-- ms</strong></div>
+        <div><span>Scene</span><strong id="monitorScene">--</strong></div>
+        <div><span>Hybrid</span><strong id="monitorHybrid">Off</strong></div>
+        <div><span>Audio</span><strong id="monitorAudio">Fallback</strong></div>
+        <div><span>Source</span><strong id="monitorAudioSource">--</strong></div>
+      </div>
+      <div class="monitor-state-grid">
+        <div><span>Fireworks</span><strong id="monitorFirework">0</strong></div>
+        <div><span>Missiles</span><strong id="monitorMissile">0</strong></div>
+        <div><span>Atomic</span><strong id="monitorAtomic">0</strong></div>
+        <div><span>Automation</span><strong id="monitorAutomation">Off</strong></div>
+      </div>
+      <div class="button-grid">
+        <button id="monitorToggleButton" type="button">Monitor On</button>
+        <button id="runtimeCleanupButton" type="button">Runtime Cleanup</button>
+      </div>
+    </section>
+
+    <section class="panel panel-audio-hub panel-open" data-panel-title="Audio Reactive Hub">
+      <h2>Audio Reactive Hub</h2>
+      <div class="meter-row"><span>Bass</span><strong id="bassReadout">0%</strong></div>
+      <div class="meter"><i id="bassMeter"></i></div>
+      <div class="meter-row"><span>Mid</span><strong id="midReadout">0%</strong></div>
+      <div class="meter"><i id="midMeter"></i></div>
+      <div class="meter-row"><span>High</span><strong id="highReadout">0%</strong></div>
+      <div class="meter"><i id="highMeter"></i></div>
+      <div class="meter-row"><span>BPM</span><strong id="bpmReadout">--</strong></div>
+      <div class="meter-row"><span>Beat Pulse</span><strong id="beatReadout">0%</strong></div>
+      <div class="meter-row"><span>Source</span><strong id="audioSourceReadout">Mic / Fallback</strong></div>
+      <div class="meter-row"><span>Beat FX Mode</span><strong id="beatFxModeReadout">Interval</strong></div>
+      <div class="meter-row"><span>Colour Beat FX</span><strong id="colorBeatFxReadout">Off</strong></div>
+    </section>
+
+    <section class="panel panel-global panel-collapsed" data-panel-title="Global Visual Controls">
+      <h2>Global Visual Controls</h2>
+      <div id="visualControls" class="slider-stack"></div>
+    </section>
+
+    <section class="panel panel-audio-controls panel-collapsed" data-panel-title="Audio Controls">
+      <h2>Audio Controls</h2>
+      <div id="audioControls" class="slider-stack"></div>
+    </section>
+
+    <section class="panel panel-colour panel-collapsed" data-panel-title="Colour + Gradient">
+      <h2>Colour + Gradient</h2>
+      <div class="button-grid">
+        <button id="cyclePaletteButton" type="button">Cycle Palette</button>
+        <button id="toggleGradientButton" type="button">Gradient On</button>
+      </div>
+
+      <div class="colour-module">
+        <div class="module-title">Custom Colour Module</div>
+        <button id="customColourToggleButton" type="button">Custom Colours Off</button>
+        <div id="customColourBoxes" class="colour-box-grid">
+          <label class="colour-box-label" for="customColorA">
+            <span>Primary</span>
+            <i id="customColorBoxA" class="colour-box"></i>
+            <input id="customColorA" type="color" value="#79f7ff" />
+          </label>
+          <label class="colour-box-label" for="customColorB">
+            <span>Secondary</span>
+            <i id="customColorBoxB" class="colour-box"></i>
+            <input id="customColorB" type="color" value="#42a5ff" />
+          </label>
+          <label class="colour-box-label" for="customColorC">
+            <span>Accent</span>
+            <i id="customColorBoxC" class="colour-box"></i>
+            <input id="customColorC" type="color" value="#ff2d8f" />
+          </label>
+        </div>
+        <div class="panel-note">Click a colour box to open the colour picker. These colours drive scene colours and gradients.</div>
+      </div>
+
+      <div id="colorControls" class="slider-stack"></div>
+    </section>
+
+    <section class="panel panel-text panel-collapsed" data-panel-title="Text Projection">
+      <h2>Text Projection</h2>
+      <div class="button-grid">
+        <button id="textProjectionToggleButton" type="button">Text Off</button>
+        <button id="textBehindSceneButton" type="button">Text Behind Scene</button>
+        <button id="textAboveSceneButton" type="button">Text Above Scene</button>
+      </div>
+      <label for="textMessageInput">Projected Text</label>
+      <textarea id="textMessageInput" class="hud-textarea" rows="4" placeholder="Type text to project at the centre of the scene">MAESTRO V
+LIVE VISUAL</textarea>
+      <div class="inline-row text-inline-row">
+        <div>
+          <label for="textFontSelect">Font Number</label>
+          <select id="textFontSelect"></select>
+        </div>
+        <div>
+          <label for="textColourSlotSelect">Text Colour</label>
+          <select id="textColourSlotSelect">
+            <option value="a">Primary</option>
+            <option value="b">Secondary</option>
+            <option value="c">Accent</option>
+          </select>
+        </div>
+      </div>
+      <div class="inline-row text-inline-row">
+        <div>
+          <label for="textGlowColourSlotSelect">Glow Colour</label>
+          <select id="textGlowColourSlotSelect">
+            <option value="a">Primary</option>
+            <option value="b">Secondary</option>
+            <option value="c">Accent</option>
+          </select>
+        </div>
+        <div>
+          <label for="textAnimationSelect">Animation Mode</label>
+          <select id="textAnimationSelect"></select>
+        </div>
+      </div>
+      <div class="inline-row text-inline-row">
+        <div>
+          <label for="textAlignSelect">Per-Line Alignment</label>
+          <select id="textAlignSelect">
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+        <div>
+          <label>Animation</label>
+          <div class="panel-note compact-note">Current modes include drift, type-on, wave, glitch, spin, bounce, slide, ripple, scramble and orbit.</div>
+        </div>
+      </div>
+      <div class="inline-row text-inline-row">
+        <div>
+          <label>Text Layer</label>
+          <div class="panel-note compact-note">Choose whether the projected text sits behind the scene visuals or above them.</div>
+        </div>
+        <div>
+          <label>Animation</label>
+          <div class="panel-note compact-note">Use animation speed, opacity, scale, rotation and alignment sliders below.</div>
+        </div>
+      </div>
+      <div class="panel-note">Projected text sits at the centre of the scene. Text and glow colours follow the active palette and existing colour controls. Position, rotation, opacity, scale, alignment, and animation behaviour are adjusted below.</div>
+      <div id="textControls" class="slider-stack"></div>
+    </section>
+
+    <section class="panel panel-scene-controls panel-open" data-panel-title="Scene Controls">
+      <h2>Scene Controls</h2>
+      <div id="sceneUiControls" class="slider-stack"></div>
+      <div id="sceneControls" class="slider-stack"></div>
+    </section>
+
+    <section class="panel small-note panel-collapsed" data-panel-title="Keyboard Shortcuts">
+      <p>Keyboard: H tools · M mic · S sound card · B Beat FX · G 4-beat FX · V 2-bar colour FX · R randomise · C reset camera · F fullscreen · 1–9 scenes · 0 atomic · - hybrid · select Iris or Firework from scene dropdown · Mouse wheel zoom · Right/Shift drag rotate</p>
+      <p class="byline">MAESTRO V · BY [DJ7]-[AOC] // WILSONLICIOUSSSS · MIT LICENSE</p>
+    </section>
+  </aside>
+
+  <script src="./js/config.js?v=107"></script>
+  <script src="./js/core/brand.js?v=107"></script>
+  <script src="./js/core/state.js?v=107"></script>
+  <script src="./js/core/runtimeMonitor.js?v=107"></script>
+  <script src="./js/core/audioEngine.js?v=107"></script>
+  <script src="./js/core/hudController.js?v=107"></script>
+  <script src="./js/pixi/scenes/matrixCodingScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/codeGlitchScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/dataConstellationScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/orbitGeometryScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/obsidianGraphScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/pixelMissileScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/laserPerspectiveScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/chladniPlateScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/chladniCyberScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/slashFabricScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/atomicViralScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/kaleidoIrisScene.js?v=107"></script>
+  <script src="./js/pixi/scenes/fireworkBurstScene.js?v=107"></script>
+  <script src="./js/three/scenes/mobiusGalaxyScene.js?v=107"></script>
+  <script src="./js/three/scenes/dnaOscilloscopeScene.js?v=107"></script>
+  <script src="./js/pixi/pixiLayer.js?v=107"></script>
+  <script src="./js/three/threeLayer.js?v=107"></script>
+  <script src="./js/app.js?v=107"></script>
+</body>
+</html>
