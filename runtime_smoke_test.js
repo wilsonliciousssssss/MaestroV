@@ -1,35 +1,159 @@
-function og_scenePalette() { return VisualState.palette(); }
-function og_perfScale() { return VisualState.perfMode().densityScale; }
-function og_drawGlowPoint(ctx, x, y, radius, color, alpha = 0.8) {
-  const glow = (VisualState.controls.glow || 0) * VisualState.perfMode().glowScale;
-  ctx.save();
-  if (glow > 12) { ctx.shadowBlur = Math.min(22, glow * 0.22); ctx.shadowColor = color; }
-  ctx.fillStyle = rgba(color, alpha);
-  ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-}
-function og_drawLine(ctx, x1, y1, x2, y2, color, alpha = 0.35, width = 1) {
-  ctx.save(); ctx.strokeStyle = rgba(color, alpha); ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
-}
-function og_drawBox(ctx, x, y, w, h, color, alpha = 0.2, lw = 1) {
-  ctx.save(); ctx.strokeStyle = rgba(color, alpha); ctx.lineWidth = lw; ctx.strokeRect(x, y, w, h); ctx.restore();
-}
-function og_scenePulse(audio) { return 1 + audio.beat * 0.35 + audio.bass * 0.18; }
+const fs = require('fs');
+const vm = require('vm');
+const path = require('path');
+const ROOT = __dirname;
 
-const OrbitGeometryScene = {
-  draw(ctx, width, height, time, audio) {
-    const p = og_scenePalette(); const cx=width/2, cy=height/2;
-    const rings = VisualState.controls.orbitRings || 8; const scale=(VisualState.controls.orbitScale||100)/100;
-    ctx.save(); ctx.translate(cx,cy); ctx.rotate((time*(VisualState.controls.orbitSpeed||1))*0.16);
-    for(let r=0;r<rings;r++){
-      const rad=(52+r*31)*scale*(1+audio.bass*0.18); const ecc=0.38+0.035*r+audio.mid*0.08;
-      ctx.strokeStyle=rgba(r%2?p.b:p.a,0.16+audio.mid*0.2); ctx.lineWidth=(VisualState.controls.lineWeight||1)*(1+r/rings*.3);
-      ctx.beginPath(); ctx.ellipse(0,0,rad,rad*ecc,time*0.18+r*.3,0,Math.PI*2); ctx.stroke();
-      // polygon frame
-      const sides=5+(r%5); ctx.beginPath();
-      for(let i=0;i<=sides;i++){const a=i/sides*Math.PI*2+time*.22+r; const x=Math.cos(a)*rad; const y=Math.sin(a)*rad*ecc; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);} ctx.strokeStyle=rgba(p.c,0.06+audio.high*.08); ctx.stroke();
-      for(let i=0;i<10;i++){ const ang=time*(0.45+r*.055)+i*Math.PI*2/10+r; const x=Math.cos(ang)*rad, y=Math.sin(ang)*rad*ecc; og_drawGlowPoint(ctx,x,y,(VisualState.controls.pointSize||2)*(1+audio.beat*.6),i%2?p.c:p.a,0.72); if(i%3===0) og_drawLine(ctx,0,0,x,y,p.b,0.04+audio.bass*.06,0.6); }
-    }
-    ctx.restore();
+const store = {};
+const listeners = {};
+
+const ctx = new Proxy({}, {
+  get(target, prop) {
+    if (prop in target) return target[prop];
+    if (prop === 'canvas') return { width: 1280, height: 720 };
+    if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => ({ addColorStop(){} });
+    if (prop === 'measureText') return (text='') => ({ width: String(text).length * 12 });
+    if (prop === 'globalAlpha') return 1;
+    return (...args) => {};
+  },
+  set(target, prop, value) { target[prop] = value; return true; }
+});
+
+function createElementStub(tag = 'div', id = '') {
+  const el = {
+    id,
+    tagName: String(tag).toUpperCase(),
+    value: '',
+    textContent: '',
+    innerHTML: '',
+    style: {},
+    className: '',
+    type: '',
+    rows: 0,
+    placeholder: '',
+    children: [],
+    options: [],
+    selectedIndex: 0,
+    width: 1280,
+    height: 720,
+    classList: {
+      _set: new Set(id === 'hud' ? ['open'] : []),
+      toggle(c, v) { if (v === undefined) { this._set.has(c) ? this._set.delete(c) : this._set.add(c); } else { v ? this._set.add(c) : this._set.delete(c); } },
+      add(c) { this._set.add(c); },
+      remove(c) { this._set.delete(c); },
+      contains(c) { return this._set.has(c); }
+    },
+    setAttribute() {},
+    appendChild(child) {
+      this.children.push(child);
+      if (this.tagName === 'SELECT') {
+        this.options.push(child);
+        if (this.value === '') this.value = child.value;
+      }
+      return child;
+    },
+    append(...children) { children.forEach((c) => this.appendChild(c)); },
+    addEventListener(type, fn) { listeners[(id || tag) + ':' + type] = fn; this['on' + type] = fn; },
+    getContext() { return ctx; },
+    setPointerCapture() {},
+    releasePointerCapture() {}
+  };
+  return el;
+}
+
+function elStub(id = '') {
+  if (!store[id]) {
+    const lower = String(id).toLowerCase();
+    const tag = lower.includes('canvas') ? 'canvas' : (lower.includes('select') ? 'select' : (lower.includes('input') || lower.includes('textarea') ? 'input' : 'div'));
+    store[id] = createElementStub(tag, id);
   }
+  return store[id];
+}
+
+global.window = global;
+global.performance = { _t: 0, now() { this._t += 16; return this._t; } };
+global.navigator = { mediaDevices: {} };
+global.innerWidth = 1280;
+global.innerHeight = 720;
+global.devicePixelRatio = 1;
+global.document = {
+  fullscreenElement: null,
+  documentElement: { requestFullscreen(){} },
+  activeElement: null,
+  getElementById: elStub,
+  createElement: (tag) => createElementStub(tag),
+  addEventListener() {},
+  exitFullscreen() {}
 };
+global.addEventListener = () => {};
+global.requestAnimationFrame = () => {};
+global.MediaStream = function(tracks){ this.getTracks = () => tracks || []; this.getAudioTracks = () => tracks || []; };
+
+const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const scripts = [...html.matchAll(/<script src="\.\/([^"]+)"><\/script>/g)].map(m => m[1]);
+for (const file of scripts) {
+  const code = fs.readFileSync(path.join(ROOT, file.split('?')[0]), 'utf8');
+  vm.runInThisContext(code, { filename: file });
+}
+
+HudController.init();
+ThreeLayer.init();
+PixiLayer.init();
+
+['textProjectionToggleButton','textBehindSceneButton','textAboveSceneButton','textMessageInput','textFontSelect','textColourSlotSelect','textGlowColourSlotSelect','textAnimationSelect','textAlignSelect'].forEach((id) => {
+  if (!document.getElementById(id)) throw new Error(`Missing ${id}`);
+});
+
+listeners['textProjectionToggleButton:click']();
+if (!VisualState.textProjectionEnabled) throw new Error('Text projection toggle failed');
+
+const animationSelect = document.getElementById('textAnimationSelect');
+if (animationSelect.options.length !== 10) throw new Error('Expected 10 text animation modes');
+animationSelect.value = 'glitch';
+listeners['textAnimationSelect:change']();
+if (VisualState.textAnimationMode !== 'glitch') throw new Error('Text animation mode update failed');
+
+const alignSelect = document.getElementById('textAlignSelect');
+alignSelect.value = 'right';
+listeners['textAlignSelect:change']();
+if (VisualState.textAlign !== 'right') throw new Error('Text align update failed');
+
+['textScaleX','textScaleY','textAnimationSpeed'].forEach((controlId) => {
+  if (!(controlId in VisualState.controls)) throw new Error(`Missing control ${controlId}`);
+});
+VisualState.setControl('textScaleX', 125);
+VisualState.setControl('textScaleY', 80);
+VisualState.setControl('textAnimationSpeed', 160);
+if (VisualState.controls.textScaleX !== 125) throw new Error('Text scale X failed');
+if (VisualState.controls.textScaleY !== 80) throw new Error('Text scale Y failed');
+if (VisualState.controls.textAnimationSpeed !== 160) throw new Error('Text animation speed failed');
+
+for (const mode of ['pulse', 'flicker', 'scan', 'drift', 'typeOn', 'wave', 'glitch', 'zoom', 'spin', 'bounce']) {
+  VisualState.setTextAnimationMode(mode);
+  PixiLayer.drawProjectedText(1280, 720, 1.35, { bass: .7, mid: .5, high: .4, beat: .6, bpm: 128 });
+}
+
+for (const sceneObj of DJ_CONFIG.scenes) {
+  VisualState.setScene(sceneObj.id);
+  HudController.renderSceneControls();
+  ThreeLayer.update(1.2, { bass: .7, mid: .5, high: .4, beat: .6, bpm: 128 });
+  PixiLayer.update(1.2, { bass: .7, mid: .5, high: .4, beat: .6, bpm: 128 });
+  console.log('OK', sceneObj.id);
+}
+if (typeof MaestroBrand === 'undefined') throw new Error('MaestroBrand missing');
+MaestroBrand.init();
+if (MaestroBrand.current().id !== 'lime') throw new Error('Default channel should be lime');
+MaestroBrand.setChannel('magenta');
+if (MaestroBrand.current().hex !== '#FF2E9A') throw new Error('Channel switch failed');
+MaestroBrand.setChannel('lime');
+console.log('OK brand channel system');
+if (typeof MaestroMobile === 'undefined') throw new Error('MaestroMobile missing');
+if (typeof MaestroMobile.isPhone() !== 'boolean') throw new Error('isPhone should return boolean');
+const prevPerf = VisualState.perfIndex, prevDensity = VisualState.controls.density;
+VisualState.setControl('density', 200);
+MaestroMobile.applyMobileDefaults(true);
+if (VisualState.perfMode().name !== 'Lite') throw new Error('Mobile perf default should be Lite');
+if (VisualState.controls.density > 110) throw new Error('Mobile density trim failed');
+MaestroMobile.cycleScene(1);
+VisualState.perfIndex = prevPerf; VisualState.setControl('density', prevDensity);
+console.log('OK mobile responsive layer');
+console.log('Maestro V runtime smoke test passed');

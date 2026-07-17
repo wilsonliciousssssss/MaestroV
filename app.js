@@ -1,8 +1,38 @@
-function lp_scenePalette() { return VisualState.palette(); }
-function lp_perfScale() { return VisualState.perfMode().densityScale; }
-function lp_drawGlowPoint(ctx, x, y, radius, color, alpha = 0.8) { const glow = (VisualState.controls.glow || 0) * VisualState.perfMode().glowScale; ctx.save(); if (glow > 12) { ctx.shadowBlur = Math.min(22, glow * 0.22); ctx.shadowColor = color; } ctx.fillStyle = rgba(color, alpha); ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-function lp_drawLine(ctx, x1, y1, x2, y2, color, alpha = 0.35, width = 1) { ctx.save(); ctx.strokeStyle = rgba(color, alpha); ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore(); }
-const LaserPerspectiveScene = { draw(ctx,width,height,time,audio){const p=lp_scenePalette(); const count=VisualState.controls.laserCount||18; const mode=VisualState.controls.laserPerspective||3; const vanishes=[[width*.5,height*.12],[width*.14,height*.32],[width*.86,height*.32],[width*.5,height*.8]];
-  vanishes.slice(0,mode).forEach((v,idx)=>{for(let i=0;i<12;i++){const x=i/11*width; lp_drawLine(ctx,v[0],v[1],x,height,idx%2?p.a:p.b,0.025,0.7);} });
-  for(let i=0;i<count;i++){const v=vanishes[i%mode]; const seed=(i*97)%width; const x=(seed+Math.sin(time*1.4+i)*width*.2+width)%width; const y=height*(.28+((i*37)%62)/100); const col=i%3===0?p.a:i%3===1?p.c:p.b; lp_drawLine(ctx,v[0],v[1],x,y,col,.16+audio.high*.38,1+audio.beat*3.8); lp_drawGlowPoint(ctx,x,y,2+audio.beat*3.4,col,.54); if(i%3===0) lp_drawLine(ctx,x-70,y+18,x+70,y-18,col,.08+audio.mid*.08,0.8); if(Math.random()<0.16) lp_drawLine(ctx,v[0],v[1],x+Math.sin(time+i)*35,y+Math.cos(time+i)*16,col,.1,0.7);}  
-  for(let i=0;i<Math.floor((VisualState.controls.laserSmoke||24)*lp_perfScale());i++){const x=(Math.sin(i*13.1+time*.34)*.5+.5)*width; const y=(Math.cos(i*8.7+time*.2)*.5+.5)*height; lp_drawGlowPoint(ctx,x,y,1+Math.random()*2,p.b,.035+audio.bass*.03);} }};
+async function boot() {
+  try {
+    HudController.init();
+    ThreeLayer.init();
+    PixiLayer.init();
+    window.addEventListener('resize', () => { ThreeLayer.resize(); PixiLayer.resize(); });
+    requestAnimationFrame(loop);
+  } catch (error) {
+    console.error('[Maestro V boot failed]', error);
+    const pill = document.getElementById('statusPill');
+    if (pill) pill.textContent = 'BOOT ERROR';
+  }
+}
+
+function loop() {
+  const time = performance.now() * 0.001;
+  AudioEngine.update();
+  const audio = AudioEngine.snapshot();
+  if (typeof RuntimeMonitor !== 'undefined') RuntimeMonitor.update(time, audio);
+  HudController.update();
+  ThreeLayer.update(time, audio);
+  PixiLayer.update(time, audio);
+  requestAnimationFrame(loop);
+}
+
+function registerServiceWorker() {
+  try {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    if (typeof location === 'undefined' || location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') return;
+    navigator.serviceWorker.register('./sw.js').catch((error) => {
+      console.warn('[Maestro V] service worker registration failed', error);
+    });
+  } catch (error) {
+    console.warn('[Maestro V] service worker skipped', error);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => { boot(); registerServiceWorker(); });

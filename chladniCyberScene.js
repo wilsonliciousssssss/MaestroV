@@ -1,319 +1,179 @@
-
-function dc_scenePalette() { return VisualState.palette(); }
-function dc_perfScale() { return VisualState.perfMode().densityScale; }
-function dc_drawLine(ctx, x1, y1, x2, y2, color, alpha = 0.35, width = 1, dash = null) {
+function cc_scenePalette() { return VisualState.palette(); }
+function cc_perfScale() { return VisualState.perfMode().densityScale; }
+function cc_clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function cc_norm(value, fallback = 0) { return cc_clamp((value ?? fallback) / 100, 0, 1); }
+function cc_drawGlowPoint(ctx, x, y, radius, color, alpha = 0.8) {
+  const glow = (VisualState.controls.glow || 0) * VisualState.perfMode().glowScale;
   ctx.save();
-  ctx.strokeStyle = rgba(color, alpha);
-  ctx.lineWidth = width;
-  if (dash) ctx.setLineDash(dash);
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.stroke();
-  ctx.restore();
-}
-function dc_drawBox(ctx, x, y, w, h, color, alpha = 0.2, lw = 1, fillAlpha = 0) {
-  ctx.save();
-  if (fillAlpha > 0) {
-    ctx.fillStyle = rgba(color, fillAlpha);
-    ctx.fillRect(x, y, w, h);
-  }
-  ctx.strokeStyle = rgba(color, alpha);
-  ctx.lineWidth = lw;
-  ctx.strokeRect(x, y, w, h);
-  ctx.restore();
-}
-function drawPlus(ctx, x, y, size, color, alpha = 0.55, lw = 1) {
-  ctx.save();
-  ctx.strokeStyle = rgba(color, alpha);
-  ctx.lineWidth = lw;
-  ctx.beginPath();
-  ctx.moveTo(x - size, y); ctx.lineTo(x + size, y);
-  ctx.moveTo(x, y - size); ctx.lineTo(x, y + size);
-  ctx.stroke();
-  ctx.restore();
-}
-function drawStar(ctx, x, y, size, color, alpha = 0.55, lw = 1, rotation = 0) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rotation);
-  ctx.strokeStyle = rgba(color, alpha);
-  ctx.lineWidth = lw;
-  ctx.beginPath();
-  ctx.moveTo(-size, 0); ctx.lineTo(size, 0);
-  ctx.moveTo(0, -size); ctx.lineTo(0, size);
-  ctx.moveTo(-size * 0.7, -size * 0.7); ctx.lineTo(size * 0.7, size * 0.7);
-  ctx.moveTo(-size * 0.7, size * 0.7); ctx.lineTo(size * 0.7, -size * 0.7);
-  ctx.stroke();
-  ctx.restore();
-}
-function drawDiamond(ctx, x, y, size, color, alpha = 0.5, lw = 1, fillAlpha = 0) {
-  ctx.save();
-  if (fillAlpha > 0) {
-    ctx.fillStyle = rgba(color, fillAlpha);
-    ctx.beginPath();
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x + size, y);
-    ctx.lineTo(x, y + size);
-    ctx.lineTo(x - size, y);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.strokeStyle = rgba(color, alpha);
-  ctx.lineWidth = lw;
-  ctx.beginPath();
-  ctx.moveTo(x, y - size);
-  ctx.lineTo(x + size, y);
-  ctx.lineTo(x, y + size);
-  ctx.lineTo(x - size, y);
-  ctx.closePath();
-  ctx.stroke();
-  ctx.restore();
-}
-function drawDot(ctx, x, y, size, color, alpha = 0.5) {
-  ctx.save();
+  if (glow > 10) { ctx.shadowBlur = Math.min(22, glow * 0.2 + radius * 0.65); ctx.shadowColor = color; }
   ctx.fillStyle = rgba(color, alpha);
-  ctx.beginPath();
-  ctx.arc(x, y, size, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(x, y, Math.max(0.2, radius), 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
-function drawNodeBoxSymbol(ctx, x, y, size, color, alpha = 0.5, lw = 1) {
-  dc_drawBox(ctx, x - size, y - size, size * 2, size * 2, color, alpha, lw, 0);
-  drawPlus(ctx, x, y, size * 0.65, color, alpha * 0.85, lw * 0.9);
+function cc_drawLine(ctx, x1, y1, x2, y2, color, alpha = 0.35, width = 1) {
+  ctx.save(); ctx.strokeStyle = rgba(color, alpha); ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
 }
-const DataConstellationScene = {
-  nodes: [],
-  packets: [],
-  ensure(width, height) {
-    const count = Math.floor((VisualState.controls.nodeCount || 160) * dc_perfScale());
-    if (Math.abs(this.nodes.length - count) < 8) return;
-    const symbolMix = (VisualState.controls.symbolMix || 56) / 100;
-    const hubControl = (VisualState.controls.hubCount || 8);
-    this.nodes = Array.from({ length: count }, (_, i) => {
-      const r = Math.random();
-      let type = 'dot';
-      if (r < symbolMix) {
-        const sr = Math.random();
-        if (sr < 0.25) type = 'star';
-        else if (sr < 0.5) type = 'plus';
-        else if (sr < 0.75) type = 'diamond';
-        else type = 'box';
-      }
-      return {
-        x: Math.random() * width,
-        y: Math.random() * height,
-        z: Math.random(),
-        vx: (Math.random() - 0.5) * 0.7,
-        vy: (Math.random() - 0.5) * 0.7,
-        phase: i * 0.37,
-        hub: i % Math.max(7, Math.round(26 - hubControl * 0.18)) === 0,
-        type,
-        wanderSpeed: 0.55 + Math.random() * 1.3,
-        wanderAmp: 0.5 + Math.random() * 1.1,
-        driftSeed: Math.random() * Math.PI * 2,
-        sizeJitter: 0.8 + Math.random() * 0.7,
-        clusterIndex: Math.floor(Math.random() * 6)
-      };
+function cc_drawBox(ctx, x, y, w, h, color, alpha = 0.18, lw = 1) {
+  ctx.save(); ctx.strokeStyle = rgba(color, alpha); ctx.lineWidth = lw; ctx.strokeRect(x, y, w, h); ctx.restore();
+}
+
+const ChladniCyberScene = {
+  field(u, v, n, m, harmonic, time, audio, drift) {
+    const bass = audio.bass || 0;
+    const mid = audio.mid || 0;
+    const high = audio.high || 0;
+    const t1 = time * (0.7 + drift * 1.0);
+    const t2 = time * (1.2 + drift * 1.6);
+    const x = (u + 1) * 0.5;
+    const y = (v + 1) * 0.5;
+    const core = Math.sin(n * Math.PI * x + Math.sin(t1 + y * 3.2) * drift * 0.18) * Math.sin(m * Math.PI * y + Math.cos(t1 + x * 2.6) * drift * 0.18)
+               - Math.sin(m * Math.PI * x - Math.cos(t2 + y * 2.2) * drift * 0.16) * Math.sin(n * Math.PI * y + Math.sin(t2 + x * 3.4) * drift * 0.16);
+    const harmonicField = Math.sin((n + 1) * Math.PI * x + t2 * 0.28) * Math.sin((m + 2) * Math.PI * y - t2 * 0.22);
+    const scan = Math.sin((x + y) * Math.PI * (n + m) * 0.35 + t1) * bass * 0.1 + Math.cos((x - y) * Math.PI * (n + 2) * 0.45 + t2) * mid * 0.08;
+    return core + harmonicField * harmonic * (0.35 + high * 0.45) + scan;
+  },
+
+  drawFrame(ctx, px, py, size, p, bass, mid, high, circuit) {
+    const pad = size * 0.06;
+    cc_drawBox(ctx, px, py, size, size, p.a, 0.06 + bass * 0.04, 1.1 + bass * 0.25);
+    cc_drawBox(ctx, px + pad, py + pad, size - pad * 2, size - pad * 2, p.b, 0.035 + mid * 0.03, 0.9);
+    const corners = [
+      [px, py], [px + size, py], [px, py + size], [px + size, py + size]
+    ];
+    corners.forEach((c, i) => {
+      const col = i % 2 === 0 ? p.c : p.b;
+      cc_drawGlowPoint(ctx, c[0], c[1], 2.2 + bass * 2, col, 0.12 + bass * 0.1);
     });
-    this.packets = [];
+    const bar = size * 0.12 * (0.6 + circuit * 0.5);
+    cc_drawLine(ctx, px, py + bar, px + bar, py, p.c, 0.06 + high * 0.05, 1);
+    cc_drawLine(ctx, px + size - bar, py, px + size, py + bar, p.c, 0.06 + high * 0.05, 1);
+    cc_drawLine(ctx, px, py + size - bar, px + bar, py + size, p.c, 0.06 + high * 0.05, 1);
+    cc_drawLine(ctx, px + size - bar, py + size, px + size, py + size - bar, p.c, 0.06 + high * 0.05, 1);
   },
-  getClusterCenters(width, height, time, audio, clusterCount) {
-    const centers = [];
-    const baseRadiusX = width * (0.14 + audio.mid * 0.04);
-    const baseRadiusY = height * (0.12 + audio.bass * 0.05);
-    for (let i = 0; i < clusterCount; i++) {
-      const a = (i / clusterCount) * Math.PI * 2 + time * (0.08 + i * 0.006);
-      const ring = 1 + (i % 2) * 0.34;
-      const x = width * 0.5 + Math.cos(a) * baseRadiusX * ring + Math.sin(time * 0.17 + i) * width * 0.06;
-      const y = height * 0.5 + Math.sin(a) * baseRadiusY * ring + Math.cos(time * 0.13 + i * 0.8) * height * 0.05;
-      centers.push({ x, y });
-    }
-    return centers;
-  },
-  drawSymbol(ctx, node, dotSize, symbolSize, color, alpha, time, audio) {
-    const spin = time * (0.18 + audio.high * 0.25) + node.phase;
-    const lw = 1 + audio.high * 1.2 + (node.hub ? 0.5 : 0);
-    if (node.type === 'dot') {
-      drawDot(ctx, node.x, node.y, dotSize * (1 + audio.high * 0.12), color, alpha + 0.08);
-      return;
-    }
-    if (node.type === 'star') {
-      drawStar(ctx, node.x, node.y, symbolSize * (1 + audio.high * 0.18), color, alpha, lw, spin);
-      return;
-    }
-    if (node.type === 'plus') {
-      drawPlus(ctx, node.x, node.y, symbolSize * (0.95 + audio.mid * 0.18), color, alpha, lw);
-      return;
-    }
-    if (node.type === 'diamond') {
-      drawDiamond(ctx, node.x, node.y, symbolSize * (0.9 + audio.mid * 0.08), color, alpha, lw, 0.04 + audio.bass * 0.04);
-      return;
-    }
-    drawNodeBoxSymbol(ctx, node.x, node.y, symbolSize, color, alpha, lw);
-  },
-  addPacket(x1, y1, x2, y2, color, time, style) {
-    if (this.packets.length > 120 * dc_perfScale()) return;
-    this.packets.push({ x1, y1, x2, y2, color, born: time, speed: 0.45 + Math.random() * 0.85, style: style || 'box' });
-  },
-  drawPacket(ctx, packet, time, audio) {
-    const age = (time - packet.born) * packet.speed;
-    const t = age % 1;
-    const x = packet.x1 + (packet.x2 - packet.x1) * t;
-    const y = packet.y1 + (packet.y2 - packet.y1) * t;
-    const size = 1.8 + audio.high * 2.6;
-    if (packet.style === 'diamond') {
-      drawDiamond(ctx, x, y, size, packet.color, 0.5, 1 + audio.high * 0.8, 0.08);
-    } else {
-      dc_drawBox(ctx, x - size, y - size, size * 2, size * 2, packet.color, 0.5, 1 + audio.high * 0.9, 0.08 + audio.high * 0.05);
-    }
-  },
+
   draw(ctx, width, height, time, audio) {
-    this.ensure(width, height);
-    const p = dc_scenePalette();
-    const baseReach = VisualState.controls.connectDistance || 132;
-    const drift = (VisualState.controls.nodeDrift || 42) * 0.022;
-    const density = VisualState.controls.density || 150;
-    const linkPulse = (VisualState.controls.linkPulse || 58) / 100;
-    const hubBoost = (VisualState.controls.hubCount || 8) / 100;
-    const centerPullControl = (VisualState.controls.constellationCenterPull ?? 18) / 100;
-    const dotSizeControl = (VisualState.controls.constellationDotSize || 1.8);
-    const symbolSizeControl = (VisualState.controls.constellationSymbolSize || 3.2);
-    const driftMode = Math.round(VisualState.controls.constellationDriftMode || 0); // 0 free, 1 center, 2 clusters
-    const clusterCount = Math.max(2, Math.min(6, Math.round(VisualState.controls.constellationClusterCount || 3)));
-    const bassPull = (0.004 + audio.bass * 0.055) * centerPullControl;
-    const reach = baseReach * (0.62 + audio.mid * 0.95 + audio.beat * 0.18 + (driftMode === 2 ? 0.08 : 0));
-    const centerX = width * 0.5 + Math.sin(time * 0.18) * width * (0.07 + audio.bass * 0.02);
-    const centerY = height * 0.5 + Math.cos(time * 0.14) * height * (0.06 + audio.bass * 0.02);
-    const orbitX = width * 0.5 + Math.cos(time * 0.27) * width * (0.23 + audio.bass * 0.03);
-    const orbitY = height * 0.5 + Math.sin(time * 0.21) * height * (0.18 + audio.bass * 0.03);
-    const clusterCenters = this.getClusterCenters(width, height, time, audio, clusterCount);
+    const p = cc_scenePalette();
+    const bass = audio.bass || 0;
+    const mid = audio.mid || 0;
+    const high = audio.high || 0;
+    const beat = audio.beat || 0;
 
-    // scanner rails
-    for (let k = 0; k < 8; k++) {
-      const x = (time * (24 + audio.high * 36) + k * width / 8) % width;
-      dc_drawLine(ctx, x, 0, x + width * 0.12, height, k % 2 ? p.a : p.c, 0.016 + audio.high * 0.045, 1 + audio.high * 0.55);
-      if ((k + Math.floor(time * 2)) % 2 === 0) dc_drawBox(ctx, x - 6, height * (0.12 + (k % 4) * 0.18), 12, 16, p.b, 0.06 + audio.high * 0.1, 0.8);
+    const density = Math.max(20, Math.floor((VisualState.controls.cyberChladniDensity || 72) * cc_perfScale()));
+    const baseModeX = Math.max(1, Math.floor(VisualState.controls.cyberChladniModeX || 4));
+    const baseModeY = Math.max(2, Math.floor(VisualState.controls.cyberChladniModeY || 7));
+    const threshold = cc_norm(VisualState.controls.cyberChladniThreshold, 28);
+    const drift = cc_norm(VisualState.controls.cyberChladniDrift, 52);
+    const pulse = cc_norm(VisualState.controls.cyberChladniPulse, 60);
+    const circuit = cc_norm(VisualState.controls.cyberChladniCircuit, 66);
+    const sparkle = cc_norm(VisualState.controls.cyberChladniSparkle, 58);
+
+    const n = baseModeX + Math.round(bass * 3);
+    let m = baseModeY + Math.round(mid * 4);
+    if (m === n) m += 1;
+    const harmonic = 0.2 + high * 0.9;
+
+    const size = Math.min(width, height) * 0.62 * (1 + beat * 0.03 + pulse * bass * 0.04);
+    const px = (width - size) * 0.5;
+    const py = (height - size) * 0.5;
+    const cx = width * 0.5;
+    const cy = height * 0.5;
+    const rotation = Math.sin(time * 0.3) * drift * 0.045 + Math.sin(time * 0.95) * mid * 0.02;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+    ctx.translate(-cx, -cy);
+
+    ctx.save();
+    ctx.fillStyle = rgba('#05070b', 0.14 + bass * 0.04);
+    ctx.fillRect(px, py, size, size);
+    ctx.restore();
+
+    this.drawFrame(ctx, px, py, size, p, bass, mid, high, circuit);
+
+    // cyber grid hints
+    const gridCount = Math.max(6, Math.floor(8 + circuit * 10));
+    for (let i = 1; i < gridCount; i++) {
+      const t = i / gridCount;
+      const gx = px + t * size;
+      const gy = py + t * size;
+      cc_drawLine(ctx, gx, py, gx, py + size, p.a, 0.008 + high * 0.01, 0.45);
+      cc_drawLine(ctx, px, gy, px + size, gy, p.b, 0.008 + mid * 0.01, 0.45);
     }
 
-    // drift mode guides / cluster boxes
-    if (driftMode === 2) {
-      clusterCenters.forEach((c, i) => {
-        const w = 22 + audio.mid * 8;
-        const h = 22 + audio.bass * 8;
-        const color = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
-        dc_drawBox(ctx, c.x - w * 0.5, c.y - h * 0.5, w, h, color, 0.09 + audio.mid * 0.05, 1);
-        drawPlus(ctx, c.x, c.y, 5 + audio.high * 2, color, 0.08 + audio.high * 0.08, 1);
-      });
-    } else if (driftMode === 1) {
-      dc_drawBox(ctx, centerX - 11, centerY - 11, 22, 22, p.a, 0.06 + audio.bass * 0.08, 1);
-      dc_drawBox(ctx, orbitX - 9, orbitY - 9, 18, 18, p.c, 0.05 + audio.bass * 0.07, 1);
-    }
+    const samples = Math.max(26, Math.floor(density * 0.78));
+    const tracerStep = Math.max(3, Math.floor(10 - sparkle * 5));
 
-    // structural panels react to mids
-    const panelCols = 6;
-    const panelRows = 4;
-    for (let gy = 0; gy < panelRows; gy++) {
-      for (let gx = 0; gx < panelCols; gx++) {
-        if ((gx + gy) % 2 !== 0) continue;
-        const px = width * 0.08 + gx * width * 0.14;
-        const py = height * 0.12 + gy * height * 0.18;
-        dc_drawBox(ctx, px, py, 28 + audio.mid * 8, 18 + audio.mid * 5, p.a, 0.025 + audio.mid * 0.03, 0.7);
-        if (audio.mid > 0.2) dc_drawLine(ctx, px, py + 9, px + 28 + audio.mid * 8, py + 9, p.b, 0.03 + audio.mid * 0.04, 0.7);
-      }
-    }
-
-    // motion system: always random wander, then optional center or cluster attraction.
-    this.nodes.forEach((n) => {
-      const driftForce = 0.012 * drift * (0.55 + n.wanderAmp);
-      const wanderX = Math.sin(time * (0.55 + n.wanderSpeed * 0.45) + n.phase + n.driftSeed)
-        + Math.cos(time * (1.12 + n.wanderSpeed * 0.22) + n.phase * 0.6);
-      const wanderY = Math.cos(time * (0.46 + n.wanderSpeed * 0.4) + n.phase * 1.2 + n.driftSeed)
-        + Math.sin(time * (0.98 + n.wanderSpeed * 0.28) + n.phase * 0.5);
-      n.vx += wanderX * driftForce * 0.06;
-      n.vy += wanderY * driftForce * 0.06;
-
-      let targetX = n.x;
-      let targetY = n.y;
-      let localPull = 0;
-      if (driftMode === 1) {
-        targetX = n.hub ? orbitX : centerX;
-        targetY = n.hub ? orbitY : centerY;
-        localPull = n.hub ? centerPullControl * 1.15 : centerPullControl * 0.6;
-      } else if (driftMode === 2) {
-        const cc = clusterCenters[n.clusterIndex % clusterCount];
-        targetX = n.hub ? (cc.x * 0.6 + orbitX * 0.4) : cc.x;
-        targetY = n.hub ? (cc.y * 0.6 + orbitY * 0.4) : cc.y;
-        localPull = n.hub ? centerPullControl * 0.95 : centerPullControl * 0.75;
-      } else {
-        // free drift mode keeps only a subtle hub orbit influence
-        if (n.hub) {
-          targetX = orbitX;
-          targetY = orbitY;
-          localPull = centerPullControl * 0.18;
+    // nodal circuit traces
+    for (let row = 0; row < samples; row++) {
+      const v = -1 + (row / Math.max(1, samples - 1)) * 2;
+      let prev = null;
+      for (let col = 0; col < samples; col++) {
+        const u = -1 + (col / Math.max(1, samples - 1)) * 2;
+        const val = this.field(u, v, n, m, harmonic, time, audio, drift);
+        const node = Math.max(0, 1 - Math.abs(val) / (0.055 + threshold * 0.28));
+        const x = px + (u + 1) * 0.5 * size;
+        const y = py + (v + 1) * 0.5 * size;
+        if (node > 0.2) {
+          const colr = (row + col) % 3 === 0 ? p.a : (row + col) % 3 === 1 ? p.b : p.c;
+          if (prev) {
+            cc_drawLine(ctx, prev.x, prev.y, x, y, colr, 0.03 + node * 0.18 + high * 0.02, 0.45 + node * 0.9 + bass * 0.22);
+          }
+          if (col % tracerStep === 0) {
+            const box = 1.4 + node * 2.2 + high * 0.6;
+            ctx.save();
+            ctx.strokeStyle = rgba(colr, 0.05 + node * 0.18 + high * 0.06);
+            ctx.lineWidth = 0.8;
+            ctx.strokeRect(x - box * 0.5, y - box * 0.5, box, box);
+            ctx.restore();
+            if (sparkle > 0.08 && high > 0.12) {
+              cc_drawGlowPoint(ctx, x, y, 0.4 + node * 1.1, colr, 0.07 + node * 0.18 + high * 0.07);
+            }
+          }
+          prev = { x, y };
+        } else {
+          prev = null;
         }
       }
-      if (localPull > 0) {
-        n.vx += (targetX - n.x) * (0.00075 * bassPull) * (0.7 + n.z) * localPull;
-        n.vy += (targetY - n.y) * (0.00075 * bassPull) * (0.7 + n.z) * localPull;
-      }
+    }
 
-      n.vx *= 0.992;
-      n.vy *= 0.992;
-      const wobbleX = Math.sin(time * (1 + audio.mid * 0.2) + n.phase) * 0.12;
-      const wobbleY = Math.cos(time * (0.8 + audio.mid * 0.16) + n.phase) * 0.12;
-      n.x = (n.x + n.vx * (1 + n.z + audio.bass * 0.18) + wobbleX + width) % width;
-      n.y = (n.y + n.vy * (1 + n.z + audio.bass * 0.18) + wobbleY + height) % height;
+    // scan pulses linked to low/mid/high zones
+    const sweeps = [
+      { t: (time * (0.08 + bass * 0.08)) % 1, vertical: true, col: p.c, alpha: 0.04 + bass * 0.07 },
+      { t: (time * (0.12 + mid * 0.1) + 0.33) % 1, vertical: false, col: p.b, alpha: 0.035 + mid * 0.07 },
+      { t: (time * (0.18 + high * 0.12) + 0.67) % 1, vertical: true, col: p.a, alpha: 0.03 + high * 0.08 },
+    ];
+    sweeps.forEach((s) => {
+      if (s.vertical) {
+        const x = px + s.t * size;
+        cc_drawLine(ctx, x, py, x, py + size, s.col, s.alpha, 0.85 + beat * 0.45);
+      } else {
+        const y = py + s.t * size;
+        cc_drawLine(ctx, px, y, px + size, y, s.col, s.alpha, 0.85 + beat * 0.45);
+      }
     });
 
-    // network links
-    for (let i = 0; i < this.nodes.length; i++) {
-      const a = this.nodes[i];
-      for (let j = i + 1; j < Math.min(this.nodes.length, i + 24); j++) {
-        const b = this.nodes[j];
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const d = Math.hypot(dx, dy);
-        if (d >= reach) continue;
-        const sameCluster = (a.clusterIndex % clusterCount) === (b.clusterIndex % clusterCount);
-        if (driftMode === 2 && !sameCluster && d > reach * 0.52) continue;
-        const t = 1 - d / reach;
-        const color = (i + j) % 3 === 0 ? p.a : (i + j) % 3 === 1 ? p.b : p.c;
-        const clusterBoost = driftMode === 2 && sameCluster ? 0.1 : 0;
-        const alpha = t * (0.15 + audio.mid * 0.26 + (a.hub || b.hub ? 0.1 : 0) + clusterBoost);
-        const lineW = Math.max(0.45, (VisualState.controls.lineWeight || 1) * (0.7 + a.z * 0.3 + audio.bass * 0.35));
-        if (d < reach * 0.42) {
-          dc_drawLine(ctx, a.x, a.y, b.x, b.y, color, alpha, lineW);
-          const nx = dx / (d || 1), ny = dy / (d || 1);
-          dc_drawLine(ctx, a.x - ny * 3, a.y + nx * 3, a.x + ny * 3, a.y - nx * 3, color, alpha * 0.8, 1);
-          dc_drawLine(ctx, b.x - ny * 3, b.y + nx * 3, b.x + ny * 3, b.y - nx * 3, color, alpha * 0.8, 1);
-        } else if (d < reach * 0.74) {
-          dc_drawLine(ctx, a.x, a.y, b.x, b.y, color, alpha * 0.92, lineW, [5, 5]);
-        } else {
-          dc_drawLine(ctx, a.x, a.y, b.x, b.y, color, alpha * 0.65, Math.max(0.35, lineW * 0.8), [2, 7]);
-          const mx = (a.x + b.x) * 0.5, my = (a.y + b.y) * 0.5;
-          dc_drawBox(ctx, mx - 3, my - 3, 6, 6, color, alpha * 0.7, 0.9);
+    // HUD connectors and resonance nodes
+    const nodeCount = Math.floor((10 + circuit * 18) * (VisualState.scene === 'hybrid' ? 0.55 : 1));
+    for (let i = 0; i < nodeCount; i++) {
+      const t = i / Math.max(1, nodeCount - 1);
+      const u = -0.95 + t * 1.9;
+      const v = Math.sin(time * (0.9 + mid * 0.8) + i * 0.7) * (0.18 + drift * 0.22);
+      const val = this.field(u, v, n, m, harmonic, time, audio, drift);
+      const node = Math.max(0, 1 - Math.abs(val) / (0.07 + threshold * 0.3));
+      const x = px + (u + 1) * 0.5 * size;
+      const y = py + (v + 1) * 0.5 * size;
+      const col = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
+      if (node > 0.14) {
+        cc_drawGlowPoint(ctx, x, y, 0.7 + node * 1.8 + high * 0.6, col, 0.06 + node * 0.2 + high * 0.08);
+        if (i > 0) {
+          const px2 = px + ((-0.95 + ((i - 1) / Math.max(1, nodeCount - 1)) * 1.9) + 1) * 0.5 * size;
+          const py2 = py + ((Math.sin(time * (0.9 + mid * 0.8) + (i - 1) * 0.7) * (0.18 + drift * 0.22)) + 1) * 0.5 * size;
+          cc_drawLine(ctx, px2, py2, x, y, col, 0.018 + node * 0.1 + mid * 0.03, 0.55);
         }
-        if (linkPulse > 0.15 && ((i + j) % 8 === 0 || a.hub || b.hub) && Math.random() < 0.016 + audio.high * 0.05 + audio.mid * 0.02) {
-          this.addPacket(a.x, a.y, b.x, b.y, color, time, (i + j) % 2 ? 'box' : 'diamond');
-        }
-      }
-
-      const color = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
-      const dotSize = dotSizeControl * a.sizeJitter * (0.78 + a.z * 0.45) * (1 + audio.high * 0.12 + audio.beat * 0.12);
-      const symbolSize = symbolSizeControl * a.sizeJitter * (0.82 + a.z * 0.6) * (1 + audio.high * 0.2 + audio.beat * 0.16 + (a.hub ? hubBoost * 0.36 : 0));
-      this.drawSymbol(ctx, a, dotSize, symbolSize, color, 0.42 + a.z * 0.22 + (a.hub ? 0.18 : 0), time, audio);
-      if (a.hub) {
-        dc_drawBox(ctx, a.x - 12 - audio.bass * 2, a.y - 12 - audio.bass * 2, 24 + audio.bass * 4, 24 + audio.bass * 4, p.a, 0.12 + audio.mid * 0.12, 0.9);
-        drawPlus(ctx, a.x, a.y, 8 + audio.bass * 4, p.b, 0.12 + audio.high * 0.14, 0.9 + audio.high * 0.6);
-      }
-      if (i % 21 === 0) {
-        dc_drawLine(ctx, a.x - 22, a.y, a.x + 22, a.y, p.b, 0.05 + audio.mid * 0.06, 0.75);
-        dc_drawLine(ctx, a.x, a.y - 22, a.x, a.y + 22, p.b, 0.05 + audio.mid * 0.06, 0.75);
       }
     }
 
-    this.packets = this.packets.filter((s) => time - s.born < 1.1);
-    this.packets.forEach((packet) => this.drawPacket(ctx, packet, time, audio));
+    ctx.restore();
   }
 };

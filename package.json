@@ -1,9 +1,9 @@
 {
   "name": "maestro-v",
-  "version": "107.0.0",
-  "description": "Maestro V — audio-reactive live visual engine for DJs. Alpha Omega Collective. Vanilla JS, zero runtime dependencies.",
+  "version": "110.0.0",
+  "description": "Maestro V \u2014 audio-reactive live visual engine for DJs. Alpha Omega Collective. Vanilla JS, zero runtime dependencies.",
   "scripts": {
-    "test": "node tests/runtime_smoke_test.js"
+    "test": "node runtime_smoke_test.js"
   },
   "author": "DJ7 // Wilsonlicioussss (Alpha Omega Collective)",
   "license": "MIT",

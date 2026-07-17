@@ -1,138 +1,560 @@
 
-function missileScenePalette() { return VisualState.palette(); }
-function missilePerfScale() { return VisualState.perfMode().densityScale; }
-function missileDrawGlowPoint(ctx, x, y, radius, color, alpha = 0.8) { const glow = (VisualState.controls.glow || 0) * VisualState.perfMode().glowScale; ctx.save(); if (glow > 12) { ctx.shadowBlur = Math.min(22, glow * 0.22); ctx.shadowColor = color; } ctx.fillStyle = rgba(color, alpha); ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-function missileDrawLine(ctx, x1, y1, x2, y2, color, alpha = 0.35, width = 1) { ctx.save(); ctx.strokeStyle = rgba(color, alpha); ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore(); }
-function missileDrawBox(ctx, x, y, w, h, color, alpha = 0.2, lw = 1) { ctx.save(); ctx.strokeStyle = rgba(color, alpha); ctx.lineWidth = lw; ctx.strokeRect(x, y, w, h); ctx.restore(); }
+function avScenePalette() { return VisualState.palette(); }
+function avPerfScale() { return VisualState.perfMode().densityScale; }
+function avClamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function avNorm(value, fallback = 0) { return avClamp((value ?? fallback) / 100, 0, 1); }
+function avRand(min, max) { return min + Math.random() * (max - min); }
+function avPick(list) { return list[Math.floor(Math.random() * list.length)] || list[0]; }
+function avDistance(a, b) { const dx = a.x - b.x; const dy = a.y - b.y; return Math.hypot(dx, dy); }
+function avHybridFactor() { return VisualState.scene === 'hybrid' ? 0.72 : 1; }
+function avSpreadPos(width, height, spread = 0.42) {
+  let x = width * avRand(0.12, 0.88);
+  let y = height * avRand(0.14, 0.86);
+  const cx = width * 0.5; const cy = height * 0.5;
+  const dx = x - cx; const dy = y - cy;
+  const dist = Math.hypot(dx, dy) || 1;
+  const minR = Math.min(width, height) * (0.08 + spread * 0.18);
+  if (dist < minR) {
+    const push = minR - dist;
+    x += dx / dist * push;
+    y += dy / dist * push;
+  }
+  return { x: avClamp(x, 40, width - 40), y: avClamp(y, 40, height - 40) };
+}
+function avWrap(obj, width, height, margin = 120) {
+  if (obj.x < -margin) obj.x = width + margin;
+  if (obj.x > width + margin) obj.x = -margin;
+  if (obj.y < -margin) obj.y = height + margin;
+  if (obj.y > height + margin) obj.y = -margin;
+}
+function avGlowPoint(ctx, x, y, radius, color, alpha = 0.8) {
+  const glow = (VisualState.controls.glow || 0) * VisualState.perfMode().glowScale;
+  ctx.save();
+  if (glow > 8) { ctx.shadowBlur = Math.min(26, glow * 0.26); ctx.shadowColor = color; }
+  ctx.fillStyle = rgba(color, alpha);
+  ctx.beginPath();
+  ctx.arc(x, y, Math.max(0.2, radius), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+function avLine(ctx, x1, y1, x2, y2, color, alpha = 0.24, width = 1) {
+  ctx.save();
+  ctx.strokeStyle = rgba(color, alpha);
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+function avBox(ctx, x, y, w, h, color, alpha = 0.18, lw = 1) {
+  ctx.save();
+  ctx.strokeStyle = rgba(color, alpha);
+  ctx.lineWidth = lw;
+  ctx.strokeRect(x, y, w, h);
+  ctx.restore();
+}
+function avArc(ctx, x, y, r, start, end, color, alpha = 0.22, lw = 1) {
+  ctx.save();
+  ctx.strokeStyle = rgba(color, alpha);
+  ctx.lineWidth = lw;
+  ctx.beginPath();
+  ctx.arc(x, y, r, start, end);
+  ctx.stroke();
+  ctx.restore();
+}
+function avPolygon(ctx, x, y, r, sides, rot, color, alpha = 0.22, lw = 1) {
+  ctx.save();
+  ctx.strokeStyle = rgba(color, alpha);
+  ctx.lineWidth = lw;
+  ctx.beginPath();
+  for (let i = 0; i < sides; i++) {
+    const a = rot + i * Math.PI * 2 / sides;
+    const px = x + Math.cos(a) * r;
+    const py = y + Math.sin(a) * r;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+function avSymbol(ctx, x, y, size, symbol, color, alpha = 0.6, lw = 1) {
+  ctx.save();
+  ctx.strokeStyle = rgba(color, alpha);
+  ctx.lineWidth = lw;
+  if (symbol === '*') {
+    avLine(ctx, x - size, y, x + size, y, color, alpha, lw);
+    avLine(ctx, x, y - size, x, y + size, color, alpha, lw);
+    avLine(ctx, x - size * 0.72, y - size * 0.72, x + size * 0.72, y + size * 0.72, color, alpha, lw);
+    avLine(ctx, x + size * 0.72, y - size * 0.72, x - size * 0.72, y + size * 0.72, color, alpha, lw);
+  } else if (symbol === '+') {
+    avLine(ctx, x - size, y, x + size, y, color, alpha, lw);
+    avLine(ctx, x, y - size, x, y + size, color, alpha, lw);
+  } else {
+    ctx.fillStyle = rgba(color, alpha);
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(0.8, size * 0.34), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
-const PixelMissileScene = {
-  missiles: [], bursts: [], shockwaves: [], debris: [], empPulses: [], pendingManualMissiles: 0, pendingMegaMissiles: 0,
+const AtomicViralScene = {
+  atoms: [],
+  viruses: [],
+  particles: [],
+  events: [],
+  lastBeatAt: -99,
+  lastSizeKey: '',
+  targetParticleCount: 120,
+  lastWidth: 1920,
+  lastHeight: 1080,
   reset() {
-    this.missiles = [];
-    this.bursts = [];
-    this.shockwaves = [];
-    this.debris = [];
-    this.empPulses = [];
-    this.pendingManualMissiles = 0;
-    this.pendingMegaMissiles = 0;
+    this.atoms = [];
+    this.viruses = [];
+    this.particles = [];
+    this.events = [];
+    this.lastBeatAt = -99;
+    this.lastSizeKey = '';
+    this.targetParticleCount = 120;
+    this.lastWidth = 1920;
+    this.lastHeight = 1080;
   },
   trimForHybrid() {
-    if (this.missiles.length > 12) this.missiles.splice(0, this.missiles.length - 12);
-    if (this.bursts.length > 8) this.bursts.splice(0, this.bursts.length - 8);
-    if (this.shockwaves.length > 8) this.shockwaves.splice(0, this.shockwaves.length - 8);
-    if (this.debris.length > 90) this.debris.splice(0, this.debris.length - 90);
-    if (this.empPulses.length > 5) this.empPulses.splice(0, this.empPulses.length - 5);
+    if (this.atoms.length > 16) this.atoms.splice(0, this.atoms.length - 16);
+    if (this.viruses.length > 12) this.viruses.splice(0, this.viruses.length - 12);
+    if (this.particles.length > 140) this.particles.splice(0, this.particles.length - 140);
+    if (this.events.length > 10) this.events.splice(0, this.events.length - 10);
   },
-  queueManualMissile() { this.pendingManualMissiles = Math.min(6, (this.pendingManualMissiles || 0) + 1); },
-  queueMegaMissile() { this.pendingMegaMissiles = Math.min(3, (this.pendingMegaMissiles || 0) + 1); },
-  resolveBarrageMode() { const mode = Math.round(VisualState.controls.missileBarrageMode ?? 0); return mode <= 0 ? 1 + Math.floor(Math.random() * 3) : mode; },
-  resolveSplitMode() { const mode = Math.round(VisualState.controls.missileSplitMode ?? 2); return mode === 0 ? 1 + Math.floor(Math.random() * 3) : mode; },
-  resolveExplosionMode() { const mode = Math.round(VisualState.controls.missileExplosionMode ?? 0); return mode === 0 ? 1 + Math.floor(Math.random() * 4) : mode; },
-  resolveTypeMode() { const mode = Math.round(VisualState.controls.missileTypeMode ?? 0); return mode === 0 ? 1 + Math.floor(Math.random() * 5) : mode; },
-  pushLaunchShockwave(x, y, mega = false) { const base = (VisualState.controls.launchShockwave || 64) / 100; this.shockwaves.push({ x, y, r: 6, age: 0, life: 0.42 + base * 0.22 + (mega ? 0.18 : 0), power: 18 + base * 36 + (mega ? 30 : 0), mega }); },
-  pushEmpPulse(x, y, baseSize, mega = false) {
-    const radiusCtrl = (VisualState.controls.empRadius || 62) / 100;
-    const ringCount = Math.max(1, Math.round(VisualState.controls.empRingCount || 3));
-    const interference = (VisualState.controls.interferenceStrength || 48) / 100;
-    this.empPulses.push({ x, y, age: 0, life: 0.68 + radiusCtrl * 0.35 + (mega ? 0.2 : 0), size: baseSize * (0.85 + radiusCtrl * 1.05), rings: ringCount, interference, mega });
+  createAtom(width, height, hero = false) {
+    const atomTypes = ['classic', 'dense', 'split', 'multi', 'ion'];
+    const spread = avNorm(VisualState.controls.spreadAmount, 42);
+    const layer = Math.random();
+    const scaleMul = hero ? avRand(1.18, 1.72) : (layer < 0.2 ? avRand(1.0, 1.35) : avRand(0.72, 1.08));
+    const orbiters = Math.max(1, Math.round((VisualState.controls.orbitCount || 3) + (Math.random() < 0.4 ? 1 : 0)));
+    const pos = avSpreadPos(width, height, spread);
+    return {
+      type: avPick(atomTypes),
+      x: pos.x,
+      y: pos.y,
+      vx: avRand(-0.18, 0.18),
+      vy: avRand(-0.18, 0.18),
+      r: avRand(16, 42) * scaleMul,
+      layer,
+      phase: avRand(0, Math.PI * 2),
+      orbiters,
+      drift: avRand(0.2, 1.25),
+      spin: avRand(-1, 1),
+      wobble: avRand(0.3, 1.3),
+      orbitTilt: avRand(0.35, 0.9),
+      charge: Math.random() < 0.5 ? 1 : -1,
+      opacity: avRand(0.45, 0.95)
+    };
   },
-  pushDebris(x, y, size, audio, countBoost = 0) {
-    const amount = (VisualState.controls.debrisAmount || 54) / 100;
-    const lifetime = (VisualState.controls.debrisLifetime || 56) / 100;
-    const count = Math.max(4, Math.floor((10 + amount * 24 + countBoost) * missilePerfScale()));
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = size * (0.02 + Math.random() * 0.08) * (1 + audio.high * 0.4);
-      this.debris.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - Math.random() * 1.2, age: 0, life: 0.5 + lifetime * 0.95 + Math.random() * 0.35, size: 0.8 + Math.random() * 2.1, box: Math.random() < 0.45, color: i % 3 === 0 ? 'a' : i % 3 === 1 ? 'b' : 'c' });
+  createVirus(width, height, hero = false) {
+    const virusTypes = ['spike', 'capsule', 'geometric', 'orbital', 'cluster'];
+    const spread = avNorm(VisualState.controls.spreadAmount, 42);
+    const layer = Math.random();
+    const scaleMul = hero ? avRand(1.18, 1.75) : (layer < 0.18 ? avRand(1.0, 1.4) : avRand(0.72, 1.08));
+    const pos = avSpreadPos(width, height, spread);
+    return {
+      type: avPick(virusTypes),
+      x: pos.x,
+      y: pos.y,
+      vx: avRand(-0.14, 0.14),
+      vy: avRand(-0.14, 0.14),
+      r: avRand(14, 30) * scaleMul,
+      layer,
+      phase: avRand(0, Math.PI * 2),
+      spin: avRand(-1, 1),
+      wobble: avRand(0.25, 1.1),
+      spikes: 10 + Math.floor(Math.random() * 10),
+      opacity: avRand(0.45, 0.92)
+    };
+  },
+  createParticle(width, height) {
+    const symbols = ['.', '*', '+'];
+    const spread = avNorm(VisualState.controls.spreadAmount, 42);
+    const dotScale = 0.45 + (VisualState.controls.dotSize || 7) / 7;
+    const pos = avSpreadPos(width, height, spread * 0.85);
+    return {
+      x: pos.x, y: pos.y,
+      vx: avRand(-0.5, 0.5), vy: avRand(-0.5, 0.5),
+      size: avRand(1, 5) * dotScale, layer: Math.random(),
+      phase: avRand(0, Math.PI * 2), symbol: avPick(symbols),
+      alpha: avRand(0.2, 0.75), life: avRand(8, 16)
+    };
+  },
+  ensure(width, height) {
+    this.lastWidth = width;
+    this.lastHeight = height;
+    const hybridFactor = avHybridFactor();
+    const atomCount = Math.max(3, Math.floor((VisualState.controls.atomCount || 18) * avPerfScale() * hybridFactor));
+    const virusCount = Math.max(2, Math.floor((VisualState.controls.virusCount || 10) * avPerfScale() * hybridFactor));
+    const particleCount = Math.max(10, Math.floor((VisualState.controls.microParticleAmount || 120) * avPerfScale() * hybridFactor));
+    const largeChance = avNorm(VisualState.controls.largeObjectChance, 34);
+    this.targetParticleCount = particleCount;
+    const sizeKey = [width, height, atomCount, virusCount, particleCount, largeChance.toFixed(2)].join('|');
+    if (this.lastSizeKey !== sizeKey) {
+      this.lastSizeKey = sizeKey;
+      this.atoms = Array.from({ length: atomCount }, () => this.createAtom(width, height, Math.random() < largeChance));
+      this.viruses = Array.from({ length: virusCount }, () => this.createVirus(width, height, Math.random() < largeChance));
+      this.particles = Array.from({ length: particleCount }, () => this.createParticle(width, height));
+      if (this.events.length > 20) this.events = this.events.slice(-20);
+    }
+    const particleCap = Math.max(20, Math.floor(this.targetParticleCount * 1.4));
+    if (this.particles.length > particleCap) this.particles = this.particles.slice(this.particles.length - particleCap);
+  },
+  queueEvent(type, x, y, power = 1) {
+    this.events.push({ type, x, y, power, age: 0, radius: 0, seed: Math.random() * 99 });
+    if (this.events.length > (VisualState.scene === 'hybrid' ? 14 : 24)) this.events.shift();
+  },
+  queueManualEvent(type = null) {
+    const width = this.lastWidth || window.innerWidth || 1920;
+    const height = this.lastHeight || window.innerHeight || 1080;
+    const events = ['mutation', 'ignition', 'swarm', 'fusion'];
+    const chosen = type || avPick(events);
+    const pos = avSpreadPos(width, height, avNorm(VisualState.controls.spreadAmount, 42));
+    this.queueEvent(chosen, pos.x, pos.y, 0.8 + Math.random() * 0.8);
+    return chosen;
+  },
+  maybeBeatEvent(width, height, time, audio) {
+    const beatBurst = avNorm(VisualState.controls.beatBurstStrength, 70);
+    const threshold = 0.72 - beatBurst * 0.18;
+    if (audio.beat < threshold || time - this.lastBeatAt < 0.34) return;
+    this.lastBeatAt = time;
+    const spawnHeroVirus = Math.random() < avNorm(VisualState.controls.swarmChance, 38) * 0.28;
+    const x = width * avRand(0.14, 0.86);
+    const y = height * avRand(0.16, 0.84);
+    const events = ['mutation', 'ignition', 'swarm', 'fusion'];
+    const type = avPick(events);
+    this.queueEvent(type, x, y, 0.75 + beatBurst * 0.75 + audio.bass * 0.35);
+    if (spawnHeroVirus && this.viruses.length < Math.max(6, (VisualState.controls.virusCount || 10) * 1.8)) {
+      const newbie = this.createVirus(width, height, true);
+      newbie.x = x; newbie.y = y; newbie.r *= 0.75;
+      this.viruses.push(newbie);
+    }
+    if (type === 'swarm') {
+      const extras = 3 + Math.floor(avNorm(VisualState.controls.swarmChance, 38) * 5);
+      for (let i = 0; i < extras; i++) {
+        const p = this.createParticle(width, height);
+        p.x = x + avRand(-20, 20); p.y = y + avRand(-20, 20);
+        p.vx = avRand(-1.5, 1.5); p.vy = avRand(-1.5, 1.5);
+        p.size *= 1.2;
+        this.particles.push(p);
+      }
     }
   },
-  applyTypeProfile(type, missile) { const heavyChance = (VisualState.controls.heavyRocketChance || 36) / 100; if (type === 3 && Math.random() > heavyChance) type = 1; missile.type = type; if (type === 2) { missile.speed *= 1.45; missile.width *= 0.8; missile.arc *= 0.75; missile.trailLimit = Math.max(4, Math.round(missile.trailLimit * 0.8)); } else if (type === 3) { missile.speed *= 0.8; missile.width *= 1.5; missile.arc *= 1.15; missile.explosionScale = 1.42; missile.heavy = true; } else if (type === 4) { missile.speed *= 0.92; missile.cluster = true; missile.split = true; missile.explosionScale = 0.9; } else if (type === 5) { missile.guided = true; missile.speed *= 1.02; missile.guidanceBoost = 1.8; missile.arc *= 1.02; } },
-  spawnMissile(width, height, audio, time, opts = {}) { const scatter = (VisualState.controls.missileScatter || 56) / 100, barrageMode = opts.barrageMode || this.resolveBarrageMode(), splitMode = opts.splitMode || this.resolveSplitMode(), explosionMode = opts.explosionMode || this.resolveExplosionMode(), mega = !!opts.mega; const lane = Math.floor(Math.random() * 5); let x0 = width * 0.15, y0 = height + 28, tx = width * (0.15 + Math.random() * 0.7), ty = height * (0.12 + Math.random() * (0.18 + scatter * 0.18)), arc = 130 + Math.random() * 60; if (barrageMode === 1) { x0 = width * (0.1 + lane * 0.2 + (Math.random() - 0.5) * 0.08); tx = x0 + (Math.random() - 0.5) * width * 0.08 * scatter; ty = height * (0.08 + Math.random() * 0.22); arc = 160 + Math.random() * 80; } else if (barrageMode === 2) { const fromLeft = Math.random() < 0.5; x0 = fromLeft ? -20 : width + 20; y0 = height * (0.38 + Math.random() * 0.48); tx = width * (0.18 + Math.random() * 0.64); ty = height * (0.12 + Math.random() * 0.34); arc = 70 + Math.random() * 45; } else if (barrageMode === 3) { const fromSide = Math.random() < 0.5; if (fromSide) { x0 = Math.random() < 0.5 ? -20 : width + 20; y0 = height * (0.28 + Math.random() * 0.52); } else { x0 = width * (0.08 + Math.random() * 0.84); y0 = height + 28; } tx = width * (0.24 + Math.random() * 0.52); ty = height * (0.1 + Math.random() * 0.28); arc = 105 + Math.random() * 70; } let splitChance = 0.28 + audio.mid * 0.14; if (splitMode === 1) splitChance = 0.12 + audio.mid * 0.08; else if (splitMode === 2) splitChance = 0.28 + audio.mid * 0.14; else if (splitMode === 3) splitChance = 0.58 + audio.mid * 0.16; const small = !mega && Math.random() < 0.32; const power = (VisualState.controls.megaMissilePower || 70) / 100; const missile = { x0, y0, tx, ty, t: 0, speed: (mega ? 0.0065 : 0.0075) + Math.random() * (mega ? 0.012 : 0.018), width: (mega ? 2.8 : 1) + Math.random() * (mega ? 2.6 : 2.2), trail: [], trailLimit: Math.max(5, Math.round((VisualState.controls.missileTrailLength || 16) * (small ? 0.75 : mega ? 1.45 : 1.15))), split: mega ? true : Math.random() < splitChance, small, mega, lane, born: time, seed: Math.random() * Math.PI * 2, arc: arc * (mega ? 1.2 + power * 0.2 : 1), exploded: false, thrustPhase: Math.random() * Math.PI * 2, barrageMode, explosionMode, lockPulseOffset: Math.random() * Math.PI * 2, type: 1, explosionScale: 1, clusterFired: false, isChild: !!opts.isChild };
-    this.applyTypeProfile(opts.typeMode || this.resolveTypeMode(), missile);
-    if (opts.isChild) { missile.cluster = false; missile.split = false; missile.speed *= 1.12; missile.width *= 0.72; missile.arc *= 0.4; missile.explosionScale *= 0.65; }
-    this.missiles.push(missile); this.pushLaunchShockwave(x0, y0 - 10, mega);
+  nearestVirus(atom) {
+    let best = null, bestD = Infinity;
+    for (let i = 0; i < this.viruses.length; i++) {
+      const virus = this.viruses[i];
+      const d = avDistance(atom, virus);
+      if (d < bestD) { bestD = d; best = virus; }
+    }
+    return { virus: best, distance: bestD };
   },
-  spawnClusterChildren(parent, x, y, width, height, audio, time) { const amount = Math.max(2, Math.round(VisualState.controls.clusterSplitAmount || 4)); for (let i = 0; i < amount; i++) { const angle = i / amount * Math.PI * 2 + parent.seed, radius = 50 + Math.random() * 80, tx = Math.max(width * 0.08, Math.min(width * 0.92, parent.tx + Math.cos(angle) * radius)), ty = Math.max(height * 0.08, Math.min(height * 0.7, parent.ty + Math.sin(angle) * radius * 0.55)); this.spawnMissile(width, height, audio, time, { isChild: true, typeMode: Math.random() < 0.45 ? 2 : 5, explosionMode: Math.random() < 0.5 ? 2 : 3, barrageMode: 1 }); const child = this.missiles[this.missiles.length - 1]; child.x0 = x; child.y0 = y; child.tx = tx; child.ty = ty; child.arc = 35 + Math.random() * 40; child.t = 0; child.clusterChild = true; } },
-  spawnBurst(x, y, missile, audio, time) {
-    const mode = missile.explosionMode || 2; let fragments = Math.max(8, Math.floor((VisualState.controls.fragmentCount || 24) * missilePerfScale())); if (mode === 1) fragments = Math.max(8, Math.floor(fragments * 0.7)); if (mode === 3) fragments = Math.max(14, Math.floor(fragments * 1.35));
-    const size = (VisualState.controls.explosionSize || 76) * (missile.small ? 0.8 : missile.mega ? 1.5 + (VisualState.controls.megaMissilePower || 70) / 170 : 1) * missile.explosionScale * (1 + audio.bass * 0.28);
-    this.bursts.push({ x, y, age: 0, life: 0.62 + Math.random() * 0.36 + (missile.mega ? 0.22 : 0), size, ringAlpha: 0.24 + audio.bass * 0.16 + (missile.mega ? 0.08 : 0), crossAlpha: 0.14 + audio.mid * 0.2, sparkAlpha: 0.18 + audio.high * 0.28, fragments: Array.from({ length: fragments + (missile.mega ? 14 : 0) }, (_, i) => ({ angle: (i / Math.max(1, fragments)) * Math.PI * 2 + Math.random() * 0.18, speed: size * (0.18 + Math.random() * 0.82) * (missile.split ? 1.16 : 1), size: (missile.mega ? 1.4 : 0.8) + Math.random() * 2.4, drift: (Math.random() - 0.5) * 0.4, box: i % 5 === 0, color: i % 3 === 0 ? 'a' : i % 3 === 1 ? 'b' : 'c' })), split: missile.split, mode, timeSeed: time + missile.seed, mega: missile.mega, clusterChild: missile.clusterChild });
-    if (mode === 1 || missile.mega) this.pushEmpPulse(x, y, size, missile.mega);
-    this.pushDebris(x, y, size, audio, missile.mega ? 10 : missile.clusterChild ? -3 : 0);
-  },
-  drawTacticalGrid(ctx, width, height, time, audio, p) {
-    const interference = (VisualState.controls.interferenceStrength || 48) / 100;
-    let empMix = 0; this.empPulses.forEach((pulse) => { empMix = Math.max(empMix, (1 - pulse.age / pulse.life) * pulse.interference); });
-    const totalMix = Math.min(1, interference * 0.45 + empMix);
-    const cell = 48; for (let x = 0; x <= width; x += cell) { const offset = Math.sin(time * 1.8 + x * 0.03) * totalMix * 6; missileDrawLine(ctx, x + offset, 0, x + offset, height, p.b, 0.025 + totalMix * 0.08, 1); }
-    for (let y = 0; y <= height; y += cell) { const offset = Math.cos(time * 1.6 + y * 0.04) * totalMix * 6; missileDrawLine(ctx, 0, y + offset, width, y + offset, p.a, 0.02 + totalMix * 0.06, 1); }
-    if (totalMix > 0.04) {
-      for (let i = 0; i < 8; i++) { const yy = height * (i + 1) / 9 + Math.sin(time * 5 + i) * totalMix * 8; missileDrawLine(ctx, 0, yy, width, yy, p.c, 0.02 + totalMix * 0.05, 1); }
+  updateParticles(ctx, width, height, time, audio, p, opacity) {
+    const linkAmt = avNorm(VisualState.controls.linkLineAmount, 56);
+    const driftSpeed = avNorm(VisualState.controls.driftSpeed, 46);
+    const highResp = avNorm(VisualState.controls.highSparkResponse, 72);
+    const dotScale = (VisualState.controls.dotSize || 7) / 7;
+    const spread = avNorm(VisualState.controls.spreadAmount, 42);
+    for (let i = 0; i < this.particles.length; i++) {
+      const m = this.particles[i];
+      m.x += m.vx * (0.6 + driftSpeed * 1.1) + Math.cos(time * 0.5 + m.phase) * 0.08;
+      m.y += m.vy * (0.6 + driftSpeed * 1.1) + Math.sin(time * 0.45 + m.phase) * 0.08;
+      const cx = width * 0.5, cy = height * 0.5;
+      const dx = m.x - cx, dy = m.y - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      const minR = Math.min(width, height) * (0.04 + spread * 0.12);
+      if (dist < minR) { const push = (minR - dist) * 0.02; m.x += dx / dist * push; m.y += dy / dist * push; }
+      avWrap(m, width, height, 40);
+      const pulse = (1 + audio.high * highResp * 0.8) * dotScale;
+      const col = i % 3 === 0 ? p.a : (i % 3 === 1 ? p.b : p.c);
+      avSymbol(ctx, m.x, m.y, m.size * pulse, m.symbol, col, m.alpha * opacity * (0.55 + audio.high * 0.45), 0.8 + audio.high * 0.7);
+    }
+    const maxLines = Math.floor(this.particles.length * linkAmt * 0.22 * avHybridFactor());
+    let drawn = 0;
+    for (let i = 0; i < this.particles.length && drawn < maxLines; i++) {
+      const a = this.particles[i];
+      for (let j = i + 1; j < this.particles.length && drawn < maxLines; j++) {
+        const b = this.particles[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d = Math.hypot(dx, dy);
+        const lim = 50 + linkAmt * 60 + audio.mid * 40;
+        if (d < lim && Math.abs(a.layer - b.layer) < 0.24) {
+          const alpha = (1 - d / lim) * 0.18 * opacity * (0.5 + audio.mid * 0.8);
+          avLine(ctx, a.x, a.y, b.x, b.y, drawn % 2 ? p.a : p.b, alpha, 0.6 + audio.high * 0.5);
+          drawn++;
+        }
+      }
     }
   },
-  drawLaunchPads(ctx, width, height, time, audio, p) { const pads = 5, bassPulse = 1 + audio.bass * 0.55; for (let i = 0; i < pads; i++) { const x = width * (0.1 + i * 0.2), sway = Math.sin(time * 0.8 + i * 0.6) * 14 * audio.mid, baseY = height - 28; missileDrawBox(ctx, x - 28 + sway * 0.08, baseY - 24, 56, 20, p.a, 0.12 + audio.mid * 0.08, 1); missileDrawLine(ctx, x, baseY, x + sway, height * (0.82 - audio.mid * 0.03), p.b, 0.08 + audio.mid * 0.05, 1 + audio.mid * 0.8); missileDrawLine(ctx, x - 12, baseY + 1, x + 12, baseY + 1, p.c, 0.14 + audio.high * 0.1, 1); missileDrawGlowPoint(ctx, x, baseY - 8, 1.2 + audio.high * 1.8, i % 2 ? p.a : p.c, 0.3); const towerH = 18 + bassPulse * 12 + i % 2 * 5; missileDrawLine(ctx, x - 18, baseY - 2, x - 18, baseY - towerH, p.b, 0.08, 1); missileDrawLine(ctx, x + 18, baseY - 2, x + 18, baseY - towerH, p.b, 0.08, 1); } },
-  drawReticle(ctx, x, y, time, audio, p, lockAmt = 0, warning = 0) { const baseStrength = (VisualState.controls.targetLockStrength || 60) / 100, warningStrength = (VisualState.controls.impactWarningPulse || 58) / 100, size = (VisualState.controls.missileReticleSize || 16) * (1 + audio.mid * 0.26 + lockAmt * 0.35), rot = time * (0.7 + baseStrength * 1.2) + lockAmt * 0.8, pulse = 1 + Math.sin(time * 5 + x * 0.01) * 0.05 + warning * (0.05 + warningStrength * 0.08) * Math.sin(time * (8 + warningStrength * 12)), r = size * pulse; ctx.save(); ctx.translate(x, y); ctx.rotate(rot * 0.35); missileDrawLine(ctx, -r, 0, -r * 0.35, 0, p.a, 0.14 + audio.mid * 0.1 + lockAmt * 0.12, 1 + audio.mid * 0.7); missileDrawLine(ctx, r * 0.35, 0, r, 0, p.a, 0.14 + audio.mid * 0.1 + lockAmt * 0.12, 1 + audio.mid * 0.7); missileDrawLine(ctx, 0, -r, 0, -r * 0.35, p.c, 0.12 + audio.high * 0.12 + warning * 0.12, 1); missileDrawLine(ctx, 0, r * 0.35, 0, r, p.c, 0.12 + audio.high * 0.12 + warning * 0.12, 1); missileDrawBox(ctx, -r * 0.42, -r * 0.42, r * 0.84, r * 0.84, p.b, 0.08 + audio.mid * 0.08 + lockAmt * 0.08, 1); if (warning > 0.02) { const rr = r * (1.08 + warning * 0.4); missileDrawBox(ctx, -rr * 0.5, -rr * 0.5, rr, rr, p.a, 0.08 + warning * 0.18, 1 + warning * 1.2); } ctx.restore(); },
-  updateAndDrawShockwaves(ctx, audio, p) { this.shockwaves = this.shockwaves.filter((s) => s.age < s.life); this.shockwaves.forEach((s) => { s.age += 0.016 * (1 + audio.bass * 0.25); const t = s.age / s.life, eased = 1 - t, rr = s.r + t * s.power * (1 + audio.bass * 0.4); ctx.save(); ctx.strokeStyle = rgba(s.mega ? p.a : p.b, (0.16 + audio.bass * 0.14) * eased); ctx.lineWidth = 1 + audio.bass * 1.8 + (s.mega ? 0.8 : 0); ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.arc(s.x, s.y, rr, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); missileDrawLine(ctx, s.x - rr * 0.65, s.y, s.x + rr * 0.65, s.y, p.c, 0.08 * eased, 1); }); },
-  updateAndDrawEmp(ctx, time, audio, p) {
-    this.empPulses = this.empPulses.filter((pulse) => pulse.age < pulse.life);
-    this.empPulses.forEach((pulse) => {
-      pulse.age += 0.016 * (1 + audio.bass * 0.25);
-      const t = pulse.age / pulse.life, eased = 1 - t;
-      for (let i = 0; i < pulse.rings; i++) {
-        const rr = pulse.size * (0.18 + t * (0.55 + i * 0.25));
+  drawAtom(ctx, atom, width, height, time, audio, p, controls) {
+    const bassResp = avNorm(controls.bassScaleResponse, 66);
+    const midResp = avNorm(controls.midRotationResponse, 62);
+    const highResp = avNorm(controls.highSparkResponse, 72);
+    const pulseStrength = avNorm(controls.pulseStrength, 52);
+    const wobbleAmount = avNorm(controls.wobbleAmount, 40);
+    const driftSpeed = avNorm(controls.driftSpeed, 46);
+    const rotSpeed = avNorm(controls.rotationSpeed, 54);
+    const orbitSpeed = avNorm(controls.orbitSpeed, 58);
+    const interactionStrength = avNorm(controls.interactionStrength, 60);
+    const coreBase = controls.coreSize || 38;
+    const opacity = avNorm(controls.sceneOpacity, 72);
+    const lowPulse = 1 + audio.bass * (0.12 + bassResp * 0.28) + audio.beat * pulseStrength * 0.12;
+    atom.phase += atom.spin * 0.008 * (0.4 + rotSpeed + audio.mid * midResp);
+    atom.x += atom.vx * (0.35 + driftSpeed * 1.25) + Math.sin(time * (0.3 + atom.wobble * 0.06) + atom.phase) * wobbleAmount * 0.32;
+    atom.y += atom.vy * (0.35 + driftSpeed * 1.25) + Math.cos(time * (0.28 + atom.wobble * 0.05) + atom.phase) * wobbleAmount * 0.32;
+    avWrap(atom, width, height, atom.r * 2 + 120);
+    const baseR = atom.r * lowPulse * (0.85 + coreBase / 100);
+    const spread = avNorm(controls.spreadAmount, 42);
+    const cx = width * 0.5, cy = height * 0.5;
+    const cdx = atom.x - cx, cdy = atom.y - cy;
+    const cdist = Math.hypot(cdx, cdy) || 1;
+    const desiredDist = Math.min(width, height) * (0.08 + spread * 0.18);
+    if (cdist < desiredDist) { const push = (desiredDist - cdist) * 0.04; atom.x += cdx / cdist * push; atom.y += cdy / cdist * push; }
+    let localDistortion = 0;
+    const near = this.nearestVirus(atom);
+    if (near.virus && near.distance < baseR * 3.2) {
+      const influence = (1 - near.distance / (baseR * 3.2)) * interactionStrength;
+      localDistortion += influence;
+      const ang = Math.atan2(near.virus.y - atom.y, near.virus.x - atom.x);
+      atom.x += Math.cos(ang) * influence * 0.18;
+      atom.y += Math.sin(ang) * influence * 0.18;
+      if (Math.random() < 0.01 + influence * 0.02) this.queueEvent('fusion', (atom.x + near.virus.x) * 0.5, (atom.y + near.virus.y) * 0.5, 0.45 + influence * 0.8);
+      if (controls.linkLineAmount > 0) avLine(ctx, atom.x, atom.y, near.virus.x, near.virus.y, p.c, 0.08 + influence * 0.18, 0.8 + influence * 0.8);
+    }
+    for (let i = 0; i < this.events.length; i++) {
+      const evt = this.events[i];
+      const d = Math.hypot(atom.x - evt.x, atom.y - evt.y);
+      if (d < evt.radius + baseR * 1.4) localDistortion += 0.08 * evt.power;
+    }
+    const rings = Math.max(1, Math.round((controls.orbitCount || 3) + (atom.type === 'dense' ? 1 : 0) + (atom.type === 'multi' ? 1 : 0)));
+    const coreR = Math.max(5, baseR * 0.22 * (atom.type === 'dense' ? 1.22 : 1));
+    avGlowPoint(ctx, atom.x, atom.y, coreR * (1 + audio.beat * 0.35), atom.charge > 0 ? p.a : p.c, opacity * atom.opacity);
+    if (atom.type === 'multi') {
+      for (let c = -1; c <= 1; c += 2) {
+        avGlowPoint(ctx, atom.x + c * coreR * 1.6, atom.y + Math.sin(time + atom.phase) * coreR * 0.4, coreR * 0.8, c > 0 ? p.b : p.c, opacity * 0.55);
+        avLine(ctx, atom.x, atom.y, atom.x + c * coreR * 1.6, atom.y, p.b, 0.16 * opacity, 0.8);
+      }
+    }
+    for (let ring = 0; ring < rings; ring++) {
+      const rr = baseR * (0.55 + ring * 0.24 + localDistortion * 0.06);
+      const rot = atom.phase * (1 + ring * 0.12) + time * 0.18 * (0.25 + rotSpeed + audio.mid * midResp);
+      if (atom.type === 'split') {
+        avArc(ctx, atom.x, atom.y, rr, rot, rot + Math.PI * 0.9, ring % 2 ? p.a : p.b, opacity * (0.11 + audio.mid * 0.18), 0.8 + ring * 0.08);
+        avArc(ctx, atom.x, atom.y, rr, rot + Math.PI * 1.15, rot + Math.PI * 1.9, ring % 2 ? p.c : p.a, opacity * (0.08 + audio.high * 0.16), 0.7);
+      } else {
         ctx.save();
-        ctx.strokeStyle = rgba(i % 2 ? p.a : p.b, (0.12 + pulse.interference * 0.18) * eased);
-        ctx.lineWidth = 1 + audio.bass * 1.8 + (pulse.mega ? 0.8 : 0) + i * 0.18;
-        ctx.setLineDash(i % 2 ? [8, 8] : [2, 10]);
-        ctx.beginPath(); ctx.arc(pulse.x, pulse.y, rr, 0, Math.PI * 2); ctx.stroke();
+        ctx.translate(atom.x, atom.y);
+        ctx.rotate(rot);
+        ctx.scale(1, atom.orbitTilt + Math.sin(time * 0.3 + atom.phase) * 0.08 + localDistortion * 0.03);
+        avArc(ctx, 0, 0, rr, 0, Math.PI * 2, ring % 2 ? p.b : p.a, opacity * (0.08 + audio.mid * 0.16), 0.8 + ring * 0.08);
         ctx.restore();
       }
-      for (let i = 0; i < 10; i++) {
-        const ang = i / 10 * Math.PI * 2 + time * 0.5;
-        const rr = pulse.size * (0.22 + t * 0.68);
-        missileDrawLine(ctx, pulse.x, pulse.y, pulse.x + Math.cos(ang) * rr, pulse.y + Math.sin(ang) * rr, p.c, (0.04 + pulse.interference * 0.09) * eased, 1);
+      const orbCount = Math.max(1, atom.orbiters + (ring === 0 && atom.type === 'ion' ? 2 : 0));
+      for (let k = 0; k < orbCount; k++) {
+        const ang = time * (0.45 + orbitSpeed * 1.2 + audio.mid * midResp * 1.1) + atom.phase + ring * 0.7 + k * Math.PI * 2 / orbCount;
+        const ex = atom.x + Math.cos(ang) * rr;
+        const ey = atom.y + Math.sin(ang * (atom.orbitTilt + 0.35)) * rr * 0.78;
+        avGlowPoint(ctx, ex, ey, 1.8 + audio.high * (1.4 + highResp * 2.4), k % 2 ? p.b : p.c, opacity * (0.56 + audio.high * 0.28));
+        if (atom.type === 'ion') {
+          avLine(ctx, atom.x, atom.y, ex, ey, p.a, opacity * (0.04 + audio.high * 0.12), 0.7);
+        }
       }
-    });
+    }
+    if (atom.type === 'dense' || atom.type === 'classic') {
+      avBox(ctx, atom.x - baseR * 0.9, atom.y - baseR * 0.58, baseR * 1.8, baseR * 1.16, p.b, opacity * 0.08, 0.8);
+    }
+    if (atom.type === 'ion' && highResp > 0.2) {
+      const sparkCount = 2 + Math.floor(audio.high * 4);
+      for (let i = 0; i < sparkCount; i++) {
+        const ang = time * 2 + i * Math.PI * 2 / sparkCount + atom.phase;
+        const sx = atom.x + Math.cos(ang) * baseR * 1.25;
+        const sy = atom.y + Math.sin(ang) * baseR * 1.1;
+        avSymbol(ctx, sx, sy, 1 + audio.high * 2, i % 2 ? '*' : '+', p.c, opacity * (0.25 + audio.high * 0.45), 0.8);
+      }
+    }
   },
-  updateAndDrawDebris(ctx, audio, p) {
-    const gravity = 0.08 + (VisualState.controls.debrisGravity || 58) / 100 * 0.18;
-    this.debris = this.debris.filter((d) => d.age < d.life);
-    this.debris.forEach((d, i) => {
-      d.age += 0.016 * (1 + audio.high * 0.1); d.vy += gravity * 0.06; d.x += d.vx; d.y += d.vy; const eased = 1 - d.age / d.life; const color = p[d.color];
-      if (d.box) missileDrawBox(ctx, d.x - d.size, d.y - d.size, d.size * 2, d.size * 2, color, 0.18 * eased, 1);
-      else missileDrawGlowPoint(ctx, d.x, d.y, d.size * (0.8 + audio.high * 0.5), color, 0.24 * eased);
-      if (i % 3 === 0) missileDrawLine(ctx, d.x, d.y, d.x - d.vx * 2.5, d.y - d.vy * 2.5, color, 0.08 * eased, 1);
-    });
+  drawVirus(ctx, virus, width, height, time, audio, p, controls) {
+    const bassResp = avNorm(controls.bassScaleResponse, 66);
+    const midResp = avNorm(controls.midRotationResponse, 62);
+    const highResp = avNorm(controls.highSparkResponse, 72);
+    const driftSpeed = avNorm(controls.driftSpeed, 46);
+    const rotSpeed = avNorm(controls.rotationSpeed, 54);
+    const wobbleAmount = avNorm(controls.wobbleAmount, 40);
+    const interactionStrength = avNorm(controls.interactionStrength, 60);
+    const mutationChance = avNorm(controls.mutationChance, 40);
+    const opacity = avNorm(controls.sceneOpacity, 72);
+    const spikeLen = controls.spikeLength || 18;
+    virus.phase += virus.spin * 0.012 * (0.4 + rotSpeed + audio.mid * midResp);
+    virus.x += virus.vx * (0.35 + driftSpeed * 1.2) + Math.cos(time * (0.22 + virus.wobble * 0.06) + virus.phase) * wobbleAmount * 0.28;
+    virus.y += virus.vy * (0.35 + driftSpeed * 1.2) + Math.sin(time * (0.19 + virus.wobble * 0.06) + virus.phase) * wobbleAmount * 0.28;
+    avWrap(virus, width, height, virus.r * 2 + 120);
+    let eventInfl = 0;
+    for (let i = 0; i < this.events.length; i++) {
+      const evt = this.events[i];
+      const d = Math.hypot(virus.x - evt.x, virus.y - evt.y);
+      if (d < evt.radius + virus.r * 1.6) eventInfl += 0.06 * evt.power;
+    }
+    const spread = avNorm(controls.spreadAmount, 42);
+    const cx = width * 0.5, cy = height * 0.5;
+    const cdx = virus.x - cx, cdy = virus.y - cy;
+    const cdist = Math.hypot(cdx, cdy) || 1;
+    const desiredDist = Math.min(width, height) * (0.08 + spread * 0.18);
+    if (cdist < desiredDist) { const push = (desiredDist - cdist) * 0.04; virus.x += cdx / cdist * push; virus.y += cdy / cdist * push; }
+    const r = virus.r * (1 + audio.bass * (0.12 + bassResp * 0.22) + eventInfl);
+    const pulseColor = virus.type === 'geometric' ? p.a : (virus.type === 'orbital' ? p.c : p.b);
+    avGlowPoint(ctx, virus.x, virus.y, Math.max(4, r * 0.28), pulseColor, opacity * 0.32 * virus.opacity);
+    if (virus.type === 'spike') {
+      const spikes = virus.spikes + Math.floor(audio.high * 2);
+      for (let s = 0; s < spikes; s++) {
+        const ang = virus.phase + s * Math.PI * 2 / spikes;
+        const innerR = r * 0.65;
+        const outerR = r + spikeLen * (0.55 + audio.high * (0.35 + highResp * 0.4));
+        const ix = virus.x + Math.cos(ang) * innerR;
+        const iy = virus.y + Math.sin(ang) * innerR;
+        const ox = virus.x + Math.cos(ang) * outerR;
+        const oy = virus.y + Math.sin(ang) * outerR;
+        avLine(ctx, ix, iy, ox, oy, s % 2 ? p.a : p.c, opacity * (0.1 + audio.high * 0.16), 0.9);
+        avGlowPoint(ctx, ox, oy, 1.6 + audio.high * 2.2, s % 2 ? p.a : p.b, opacity * 0.72);
+      }
+      avArc(ctx, virus.x, virus.y, r * 0.72, 0, Math.PI * 2, p.b, opacity * 0.18, 1.2);
+    } else if (virus.type === 'capsule') {
+      ctx.save();
+      ctx.translate(virus.x, virus.y);
+      ctx.rotate(virus.phase * 0.9);
+      ctx.strokeStyle = rgba(p.b, opacity * 0.28);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.6, -r * 0.42);
+      ctx.lineTo(r * 0.6, -r * 0.42);
+      ctx.arc(r * 0.6, 0, r * 0.42, -Math.PI / 2, Math.PI / 2);
+      ctx.lineTo(-r * 0.6, r * 0.42);
+      ctx.arc(-r * 0.6, 0, r * 0.42, Math.PI / 2, -Math.PI / 2);
+      ctx.closePath();
+      ctx.stroke();
+      for (let i = -1; i <= 1; i++) avLine(ctx, -r * 0.34, i * r * 0.2, r * 0.34, i * r * 0.2, p.a, opacity * 0.14, 0.8);
+      ctx.restore();
+    } else if (virus.type === 'geometric') {
+      avPolygon(ctx, virus.x, virus.y, r * 0.86, 6 + Math.floor(audio.mid * 2), virus.phase, p.a, opacity * 0.24, 1.1);
+      avPolygon(ctx, virus.x, virus.y, r * 0.48, 6, -virus.phase * 1.1, p.c, opacity * 0.18, 0.9);
+      for (let i = 0; i < 6; i++) {
+        const ang = virus.phase + i * Math.PI * 2 / 6;
+        const nx = virus.x + Math.cos(ang) * r * 0.86;
+        const ny = virus.y + Math.sin(ang) * r * 0.86;
+        avGlowPoint(ctx, nx, ny, 1.3 + audio.high * 1.8, i % 2 ? p.b : p.c, opacity * 0.62);
+      }
+    } else if (virus.type === 'orbital') {
+      avArc(ctx, virus.x, virus.y, r * 0.78, 0, Math.PI * 2, p.a, opacity * 0.2, 1.1);
+      avArc(ctx, virus.x, virus.y, r * 0.52, virus.phase, virus.phase + Math.PI * 1.7, p.c, opacity * 0.16, 0.9);
+      const orbitCount = 3 + Math.floor(audio.high * 2);
+      for (let i = 0; i < orbitCount; i++) {
+        const ang = time * (0.7 + audio.mid * 0.8) + virus.phase + i * Math.PI * 2 / orbitCount;
+        const px = virus.x + Math.cos(ang) * r;
+        const py = virus.y + Math.sin(ang * 1.1) * r * 0.68;
+        avGlowPoint(ctx, px, py, 1.6 + audio.high * 2, i % 2 ? p.c : p.a, opacity * 0.72);
+      }
+    } else if (virus.type === 'cluster') {
+      for (let i = 0; i < 5; i++) {
+        const ang = virus.phase + i * Math.PI * 2 / 5;
+        const cx = virus.x + Math.cos(ang) * r * 0.56;
+        const cy = virus.y + Math.sin(ang) * r * 0.56;
+        avGlowPoint(ctx, cx, cy, r * 0.16, i % 2 ? p.b : p.c, opacity * 0.48);
+        avLine(ctx, virus.x, virus.y, cx, cy, p.a, opacity * 0.12, 0.8);
+      }
+      avArc(ctx, virus.x, virus.y, r * 0.24, 0, Math.PI * 2, p.a, opacity * 0.22, 1.1);
+    }
+    if (Math.random() < 0.001 + mutationChance * 0.004 + audio.beat * 0.008) {
+      this.queueEvent('mutation', virus.x, virus.y, 0.5 + mutationChance * 0.8);
+    }
+    if (interactionStrength > 0.1 && this.atoms.length) {
+      const nearestAtom = this.atoms[Math.floor(Math.random() * this.atoms.length)];
+      const dx = nearestAtom.x - virus.x; const dy = nearestAtom.y - virus.y;
+      const d = Math.hypot(dx, dy) || 1;
+      if (d < r * 5.2 && Math.random() < 0.025) {
+        avLine(ctx, virus.x, virus.y, nearestAtom.x, nearestAtom.y, p.b, opacity * 0.1, 0.8);
+      }
+    }
+    avBox(ctx, virus.x - r * 1.2, virus.y - r * 1.2, r * 2.4, r * 2.4, p.a, opacity * 0.04, 0.7);
   },
-  updateAndDrawBursts(ctx, time, audio, p) { this.bursts = this.bursts.filter((b) => b.age < b.life); this.bursts.forEach((b) => { b.age += 0.016 * (1 + audio.high * 0.4 + audio.mid * 0.2); const t = b.age / b.life, eased = 1 - t, ringR = b.size * (0.16 + t * 0.95); if (b.mode === 1 || b.mode === 2 || b.mode === 4) { const ringLoops = b.mode === 1 ? 4 : b.mode === 4 ? 3 : 2; for (let r = 0; r < ringLoops + (b.mega ? 1 : 0); r++) { const rr = ringR * (0.5 + r * 0.34); ctx.save(); ctx.strokeStyle = rgba(r % 2 ? p.b : p.a, b.ringAlpha * eased * (0.95 - r * 0.14)); ctx.lineWidth = 1 + r * 0.25 + audio.bass * (b.mode === 1 ? 2 : 1.2) + (b.mega ? 0.6 : 0); ctx.setLineDash(r % 2 ? [5, 5] : [2, 7]); ctx.beginPath(); ctx.arc(b.x, b.y, rr, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); } } if (b.mode === 2 || b.mode === 3) { missileDrawLine(ctx, b.x - ringR, b.y, b.x + ringR, b.y, p.c, b.crossAlpha * eased * 0.65, 1 + audio.mid * 1.2); missileDrawLine(ctx, b.x, b.y - ringR, b.x, b.y + ringR, p.a, b.crossAlpha * eased * 0.65, 1 + audio.mid * 1.2); } b.fragments.forEach((frag, i) => { const rr = frag.speed * t, ang = frag.angle + frag.drift * t + time * 0.4 * audio.high, x = b.x + Math.cos(ang) * rr, y = b.y + Math.sin(ang) * rr, color = p[frag.color]; if (b.mode === 3) { missileDrawLine(ctx, x, y, x + Math.cos(ang) * 7, y + Math.sin(ang) * 7, color, (b.sparkAlpha + 0.06) * eased, 1 + audio.high * 0.8); if (i % 3 === 0) missileDrawBox(ctx, x - 1.5, y - 1.5, 3, 3, color, 0.12 * eased, 1); } else { if (frag.box) { const size = frag.size * (1.2 + audio.high * 0.8) * eased; missileDrawBox(ctx, x - size, y - size, size * 2, size * 2, color, b.sparkAlpha * eased, 1); } else missileDrawGlowPoint(ctx, x, y, frag.size * (0.7 + audio.high * 1.1) * eased, color, b.sparkAlpha * eased); if (i % 4 === 0 && b.mode !== 4) missileDrawLine(ctx, b.x, b.y, x, y, p.c, 0.07 * eased + audio.mid * 0.05 * eased, 0.8 + audio.mid * 0.8); } }); if (b.split) for (let i = 0; i < 6 + (b.mega ? 2 : 0); i++) { const ang = b.timeSeed * 2.6 + i * (Math.PI * 2 / (6 + (b.mega ? 2 : 0))), rr = ringR * (1.05 + audio.high * 0.18); missileDrawLine(ctx, b.x, b.y, b.x + Math.cos(ang) * rr, b.y + Math.sin(ang) * rr, p.a, 0.11 * eased, 1.1); } }); },
+  drawEvents(ctx, time, audio, p, controls) {
+    const opacity = avNorm(controls.sceneOpacity, 72);
+    const fusionChance = avNorm(controls.fusionChance, 26);
+    for (let i = this.events.length - 1; i >= 0; i--) {
+      const evt = this.events[i];
+      evt.age += 0.016 * (1 + audio.mid * 0.6);
+      evt.radius += evt.power * (1.5 + audio.bass * 4);
+      const alpha = Math.max(0, 1 - evt.age / (1.4 + evt.power * 0.8));
+      if (alpha <= 0) { this.events.splice(i, 1); continue; }
+      const color = evt.type === 'mutation' ? p.c : (evt.type === 'ignition' ? p.a : p.b);
+      avArc(ctx, evt.x, evt.y, evt.radius, 0, Math.PI * 2, color, alpha * opacity * 0.22, 1.2 + evt.power * 0.8);
+      if (evt.type === 'mutation') {
+        const petals = 6 + Math.floor(evt.power * 6);
+        for (let s = 0; s < petals; s++) {
+          const ang = evt.seed + time * 0.4 + s * Math.PI * 2 / petals;
+          const px = evt.x + Math.cos(ang) * evt.radius;
+          const py = evt.y + Math.sin(ang) * evt.radius;
+          avSymbol(ctx, px, py, 1 + audio.high * 2, s % 2 ? '*' : '+', p.c, alpha * opacity * 0.6, 0.8);
+        }
+      } else if (evt.type === 'ignition') {
+        avGlowPoint(ctx, evt.x, evt.y, 2 + evt.radius * 0.08, p.a, alpha * opacity * 0.34);
+      } else if (evt.type === 'swarm') {
+        const points = 5 + Math.floor(evt.power * 8);
+        for (let k = 0; k < points; k++) {
+          const ang = evt.seed + k * Math.PI * 2 / points;
+          const sx = evt.x + Math.cos(ang) * evt.radius * 0.7;
+          const sy = evt.y + Math.sin(ang) * evt.radius * 0.7;
+          avGlowPoint(ctx, sx, sy, 1 + audio.high * 1.5, p.b, alpha * opacity * 0.35);
+        }
+      } else if (evt.type === 'fusion') {
+        const lines = 3 + Math.floor(fusionChance * 6);
+        for (let k = 0; k < lines; k++) {
+          const ang = evt.seed + time * 0.2 + k * Math.PI * 2 / lines;
+          avLine(ctx, evt.x, evt.y, evt.x + Math.cos(ang) * evt.radius, evt.y + Math.sin(ang) * evt.radius, p.a, alpha * opacity * 0.18, 0.9);
+        }
+      }
+    }
+  },
   draw(ctx, width, height, time, audio) {
-    const p = missileScenePalette(), rate = (VisualState.controls.missileRate || 48) / 100, max = VisualState.controls.missileCount || 22, guidance = (VisualState.controls.missileGuidance || 54) / 100, engineFlicker = (VisualState.controls.missileEngineFlicker || 62) / 100, bassBoost = 1 + audio.bass * 0.95;
-    this.drawTacticalGrid(ctx, width, height, time, audio, p);
-    this.drawLaunchPads(ctx, width, height, time, audio, p);
-    const spawnChance = 0.018 + rate * 0.075 + audio.bass * 0.05 + audio.mid * 0.03;
-    if (this.missiles.length < max && Math.random() < spawnChance) this.spawnMissile(width, height, audio, time);
-    if (this.pendingManualMissiles > 0 && this.missiles.length < max + 4) { this.spawnMissile(width, height, audio, time); this.pendingManualMissiles -= 1; }
-    if (this.pendingMegaMissiles > 0 && this.missiles.length < max + 2) { this.spawnMissile(width, height, audio, time, { mega: true, explosionMode: 1 + Math.floor(Math.random() * 4), typeMode: Math.random() < 0.5 ? 3 : 5 }); this.pendingMegaMissiles -= 1; }
-    this.updateAndDrawShockwaves(ctx, audio, p); this.updateAndDrawEmp(ctx, time, audio, p);
-    this.missiles = this.missiles.filter((m) => m.t < 1.14);
-    this.missiles.forEach((m) => {
-      m.t += m.speed * (1 + audio.bass * 1.15 + audio.mid * 0.22);
-      const guidanceScale = guidance * (m.guidanceBoost || 1), guideWave = Math.sin((m.t * 7 + time * 2.2) + m.seed) * (12 + guidanceScale * 32) * audio.mid, guideWave2 = Math.cos((m.t * 11 + time * 3.1) + m.seed) * (6 + guidanceScale * 18) * audio.high;
-      const x = lerp(m.x0, m.tx, m.t) + guideWave * (1 - m.t) + guideWave2 * (1 - m.t * 0.8), y = lerp(m.y0, m.ty, m.t) - Math.sin(m.t * Math.PI) * m.arc * bassBoost;
-      m.trail.push({ x, y }); if (m.trail.length > m.trailLimit) m.trail.shift();
-      const lockAmt = Math.max(0, (m.t - 0.3) / 0.7), warning = Math.max(0, (m.t - 0.72) / 0.24);
-      this.drawReticle(ctx, m.tx, m.ty, time + m.lockPulseOffset, audio, p, lockAmt, warning);
-      if (audio.mid > 0.08) { missileDrawLine(ctx, x, y, m.tx, m.ty, p.b, 0.03 + audio.mid * 0.08 + lockAmt * 0.05, 0.8 + audio.mid); missileDrawBox(ctx, m.tx - 8 - audio.mid * 12, m.ty - 8 - audio.mid * 12, 16 + audio.mid * 24, 16 + audio.mid * 24, p.a, 0.06 + audio.mid * 0.1 + warning * 0.08, 1); }
-      if (m.cluster && !m.clusterFired && m.t > 0.62) { m.clusterFired = true; this.spawnClusterChildren(m, x, y, width, height, audio, time); }
-      for (let i = 1; i < m.trail.length; i++) { const a = m.trail[i - 1], b = m.trail[i], prog = i / m.trail.length; missileDrawLine(ctx, a.x, a.y, b.x, b.y, i % 2 ? p.a : p.c, prog * (0.12 + audio.mid * 0.16), m.width * (0.75 + audio.bass * 0.65 + (m.mega ? 0.5 : 0))); if (i % 3 === 0) { const boxSize = (VisualState.controls.pixelSize || 3) * 0.8 * prog * (1 + audio.high * 0.8); missileDrawBox(ctx, b.x - boxSize, b.y - boxSize, boxSize * 2, boxSize * 2, p.b, 0.05 + audio.high * 0.08, 1); } }
-      const pxSize = VisualState.controls.pixelSize || 3, pw = (m.small ? 4 : m.mega ? 8 : m.heavy ? 7 : 6) * pxSize / 3, ph = (m.small ? 10 : m.mega ? 18 : m.heavy ? 16 : 14) * pxSize / 3;
-      ctx.fillStyle = rgba(m.small ? p.a : m.mega ? p.b : m.cluster ? p.a : p.c, 0.92); ctx.fillRect(x - pw / 2, y - ph / 2, pw, ph); missileDrawLine(ctx, x, y + ph * 0.35, x, y + ph * 1.25, p.b, 0.22 + audio.bass * 0.2, 1 + audio.high * 1.3);
-      const flick = 1 + Math.sin(time * (10 + engineFlicker * 12) + m.seed) * (0.2 + engineFlicker * 0.35); missileDrawGlowPoint(ctx, x, y + ph * 0.85, ((m.small ? 1.6 : m.mega ? 4.2 : m.heavy ? 3.2 : 2.4) + audio.high * 3.2) * flick, p.b, 0.5 + audio.high * 0.25);
-      if (m.cluster) missileDrawBox(ctx, x - pw, y - ph * 0.7, pw * 2, ph * 1.4, p.a, 0.12, 1);
-      if (warning > 0.01) missileDrawGlowPoint(ctx, m.tx, m.ty, 2 + warning * 4, p.a, 0.08 + warning * 0.18);
-      if (m.t > 0.94 && !m.exploded) { m.exploded = true; this.spawnBurst(x, y, m, audio, time); }
-    });
-    this.updateAndDrawBursts(ctx, time, audio, p);
-    this.updateAndDrawDebris(ctx, audio, p);
+    this.ensure(width, height);
+    this.maybeBeatEvent(width, height, time, audio);
+    const p = avScenePalette();
+    const controls = VisualState.controls;
+    const opacity = avNorm(controls.sceneOpacity, 72);
+
+    ctx.save();
+    // background microscopic field
+    const hazeCount = Math.max(10, Math.floor(18 * avPerfScale()));
+    for (let i = 0; i < hazeCount; i++) {
+      const x = ((i * 83.17) % width);
+      const y = ((i * 59.93 + time * 14) % height);
+      avGlowPoint(ctx, x, y, 0.8 + (i % 4), i % 3 === 0 ? p.a : (i % 3 === 1 ? p.b : p.c), opacity * 0.04);
+    }
+
+    // layered micro particles
+    this.updateParticles(ctx, width, height, time, audio, p, opacity);
+
+    const all = [];
+    this.atoms.forEach((a) => all.push({ kind: 'atom', layer: a.layer, obj: a }));
+    this.viruses.forEach((v) => all.push({ kind: 'virus', layer: v.layer, obj: v }));
+    all.sort((a, b) => a.layer - b.layer);
+    for (let i = 0; i < all.length; i++) {
+      const item = all[i];
+      if (item.kind === 'atom') this.drawAtom(ctx, item.obj, width, height, time, audio, p, controls);
+      else this.drawVirus(ctx, item.obj, width, height, time, audio, p, controls);
+    }
+
+    this.drawEvents(ctx, time, audio, p, controls);
+
+    // heavy low-end field ripple
+    const bassResp = avNorm(controls.bassScaleResponse, 66);
+    if (audio.bass > 0.2) {
+      const rippleR = Math.min(width, height) * (0.16 + audio.bass * 0.28 + bassResp * 0.08);
+      avArc(ctx, width * 0.5, height * 0.5, rippleR, 0, Math.PI * 2, p.b, opacity * (0.02 + audio.bass * 0.08), 1.0 + audio.beat);
+    }
+    ctx.restore();
   }
 };

@@ -1,184 +1,400 @@
-function cp_scenePalette() { return VisualState.palette(); }
-function cp_perfScale() { return VisualState.perfMode().densityScale; }
-function cp_clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-function cp_norm(value, fallback = 0) { return cp_clamp((value ?? fallback) / 100, 0, 1); }
-function cp_drawGlowPoint(ctx, x, y, radius, color, alpha = 0.8) {
-  const glow = (VisualState.controls.glow || 0) * VisualState.perfMode().glowScale;
-  ctx.save();
-  if (glow > 10) { ctx.shadowBlur = Math.min(20, glow * 0.18 + radius * 0.6); ctx.shadowColor = color; }
-  ctx.fillStyle = rgba(color, alpha);
-  ctx.beginPath();
-  ctx.arc(x, y, Math.max(0.2, radius), 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-function cp_drawLine(ctx, x1, y1, x2, y2, color, alpha = 0.35, width = 1) {
+
+function fwClamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function fwLine(ctx, x1, y1, x2, y2, color, alpha = 0.3, width = 1, dash = null) {
   ctx.save();
   ctx.strokeStyle = rgba(color, alpha);
   ctx.lineWidth = width;
+  if (dash) ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.stroke();
   ctx.restore();
 }
-function cp_drawBox(ctx, x, y, w, h, color, alpha = 0.18, lw = 1) {
+function fwDot(ctx, x, y, size, color, alpha = 0.35) {
   ctx.save();
-  ctx.strokeStyle = rgba(color, alpha);
-  ctx.lineWidth = lw;
-  ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = rgba(color, alpha);
+  ctx.beginPath();
+  ctx.arc(x, y, size, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
-
-const ChladniPlateScene = {
-  grains: [],
-  lastKey: '',
-
+const FireworkBurstScene = {
+  bursts: [],
+  cooldown: 0,
+  lastMegaAt: -999,
   reset() {
-    this.grains = [];
-    this.lastKey = '';
+    this.bursts = [];
+    this.cooldown = 0;
+    this.lastMegaAt = -999;
   },
-
   trimForHybrid() {
-    if (this.grains.length > 1600) this.grains = this.grains.slice(0, 1600);
+    if (this.bursts.length > 10) this.bursts.splice(0, this.bursts.length - 10);
+  },
+  pendingManualBursts: 0,
+
+  paletteColor(index, palette) {
+    return index % 3 === 0 ? palette.a : index % 3 === 1 ? palette.b : palette.c;
   },
 
-  ensureGrains(count, scatter) {
-    const key = `${count}:${scatter.toFixed(3)}`;
-    if (this.lastKey === key && this.grains.length === count) return;
-    this.lastKey = key;
-    this.grains = [];
+  shapeLabel(mode) {
+    return ['random', 'sphere', 'fan', 'chrysanthemum', 'spiral'][Math.round(mode || 0)] || 'random';
+  },
+
+  chooseShape(styleOverride = null) {
+    if (styleOverride) return styleOverride;
+    const mode = Math.round(VisualState.controls.fireworkShapeMode || 0);
+    if (mode === 0) {
+      const all = ['sphere', 'fan', 'chrysanthemum', 'spiral'];
+      return all[Math.floor(Math.random() * all.length)];
+    }
+    return this.shapeLabel(mode);
+  },
+
+  buildLineParticles(style, spokes, radius, scatter, colorOffset, lineEnergy, mega = false) {
+    return Array.from({ length: spokes }, (_, i) => {
+      const t = spokes <= 1 ? 0 : i / (spokes - 1);
+      const baseAngle = (i / spokes) * Math.PI * 2;
+      const jitter = (Math.random() - 0.5) * (0.12 + scatter * 0.26);
+      let angle = baseAngle + jitter;
+      let reach = radius * (0.4 + Math.random() * 0.7);
+      let dash = Math.random() < 0.2 ? [3, 4] : null;
+      let bend = (Math.random() - 0.5) * 0.08;
+      if (style === 'fan') {
+        angle = -Math.PI * 0.5 + (t - 0.5) * Math.PI * (0.8 + scatter * 0.75) + jitter;
+        reach = radius * (0.5 + Math.random() * 0.55 + (1 - Math.abs(t - 0.5)) * 0.15);
+        bend = (t - 0.5) * 0.14;
+      } else if (style === 'chrysanthemum') {
+        angle = baseAngle + jitter * 0.6;
+        reach = radius * (0.62 + Math.random() * 0.5);
+        dash = i % 3 === 0 ? [2, 5] : null;
+        bend = (Math.random() - 0.5) * 0.02;
+      } else if (style === 'spiral') {
+        angle = baseAngle * 0.68 + i * 0.11 + jitter;
+        reach = radius * (0.25 + t * 0.9 + Math.random() * 0.1);
+        dash = [2, 6];
+        bend = 0.18 + t * 0.08;
+      }
+      return {
+        angle,
+        reach: mega ? reach * 1.15 : reach,
+        width: 0.7 + Math.random() * 1.9 + lineEnergy * 0.5,
+        colorIndex: colorOffset + i,
+        dash,
+        bend,
+        speed: 0.78 + Math.random() * 0.55 + (style === 'spiral' ? 0.1 : 0)
+      };
+    });
+  },
+
+  buildDotParticles(style, sparkCount, radius, scatter, colorOffset, mega = false) {
+    return Array.from({ length: sparkCount }, (_, i) => {
+      const t = sparkCount <= 1 ? 0 : i / (sparkCount - 1);
+      let angle = Math.random() * Math.PI * 2;
+      let reach = radius * (0.55 + Math.random() * 0.75);
+      let drift = (Math.random() - 0.5) * scatter * 16;
+      let orbit = 0;
+      if (style === 'fan') {
+        angle = -Math.PI * 0.5 + (t - 0.5) * Math.PI * (0.95 + scatter * 0.55) + (Math.random() - 0.5) * 0.2;
+        reach = radius * (0.4 + Math.random() * 0.7 + (1 - Math.abs(t - 0.5)) * 0.2);
+      } else if (style === 'chrysanthemum') {
+        angle = (i % Math.max(8, Math.round(sparkCount / 4))) / Math.max(8, Math.round(sparkCount / 4)) * Math.PI * 2 + (Math.random() - 0.5) * 0.08;
+        reach = radius * (0.7 + Math.random() * 0.42);
+        drift *= 0.65;
+      } else if (style === 'spiral') {
+        angle = Math.PI * 2 * (t * 2.4 + Math.random() * 0.08);
+        reach = radius * (0.16 + t * 0.95);
+        orbit = 0.55 + Math.random() * 0.85;
+      }
+      return {
+        angle,
+        reach: mega ? reach * 1.2 : reach,
+        speed: 0.82 + Math.random() * 0.72,
+        size: 0.9 + Math.random() * 3.4,
+        drift,
+        colorIndex: colorOffset + i,
+        twinkle: Math.random() * Math.PI * 2,
+        tail: 6 + Math.random() * 18,
+        orbit
+      };
+    });
+  },
+
+  buildDustParticles(radius, colorOffset, mega = false) {
+    const dustAmount = Math.max(0, VisualState.controls.fireworkDustAmount || 26);
+    const dustCount = Math.max(0, Math.round(dustAmount * (0.7 + Math.random() * 0.7) + (mega ? dustAmount * 0.45 : 0)));
+    const dustSizeControl = Math.max(1, VisualState.controls.fireworkDustSize || 8) / 8;
+    return Array.from({ length: dustCount }, (_, i) => ({
+      angle: Math.random() * Math.PI * 2,
+      drift: radius * (0.2 + Math.random() * 0.85),
+      speed: 0.45 + Math.random() * 0.5,
+      size: (0.6 + Math.random() * 1.8) * dustSizeControl,
+      wobble: Math.random() * Math.PI * 2,
+      colorIndex: colorOffset + i,
+      orbit: (Math.random() - 0.5) * 0.2
+    }));
+  },
+
+  resolveStageDepth() {
+    const configured = Math.round(VisualState.controls.fireworkStageDepth ?? 0);
+    if (configured <= 0) return 1 + Math.floor(Math.random() * 3);
+    return configured;
+  },
+
+  spawnBurst(width, height, time, audio, opts = {}) {
+    const sizeBase = VisualState.controls.fireworkSize || 76;
+    const scatter = (VisualState.controls.fireworkScatter || 64) / 100;
+    const lineEnergy = (VisualState.controls.fireworkLineBurst || 68) / 100;
+    const stageDepth = this.resolveStageDepth();
+    const childBurstAmount = Math.round(VisualState.controls.fireworkChildBurstAmount || 4);
+    const megaSensitivity = (VisualState.controls.fireworkMegaSensitivity || 76) / 100;
+    const megaFromBeat = audio.beat > (0.72 + (1 - megaSensitivity) * 0.18);
+    const mega = !!opts.mega || megaFromBeat;
+    const stage = opts.stage || 1;
+    const maxStage = opts.maxStage || stageDepth;
+    const shape = this.chooseShape(opts.shape || null);
+    const x = opts.x ?? width * (0.1 + Math.random() * 0.8);
+    const y = opts.y ?? height * (0.12 + Math.random() * 0.68);
+    const bassScale = 1 + audio.bass * 0.78 + audio.beat * 0.26;
+    const megaScale = mega ? 1.5 + audio.beat * 0.35 : 1;
+    const stageScale = Math.pow(0.68, stage - 1);
+    const radius = (opts.radius || sizeBase * (0.52 + Math.random() * 0.95)) * bassScale * megaScale * stageScale;
+    const life = (opts.life || 0.72 + Math.random() * 0.6 + audio.high * 0.22) * (mega ? 1.15 : 1) * (stage > 1 ? 0.86 : 1);
+    const spokeBase = shape === 'chrysanthemum' ? 18 : shape === 'spiral' ? 14 : 10;
+    const sparkBase = shape === 'chrysanthemum' ? 28 : shape === 'spiral' ? 20 : 14;
+    const spokes = Math.round(spokeBase + Math.random() * 10 + audio.mid * 14 + lineEnergy * 10 + (mega ? 10 : 0));
+    const sparkCount = Math.round(sparkBase + Math.random() * 18 + audio.high * 24 + scatter * 14 + (mega ? 14 : 0));
+    const ringCount = Math.round(1 + Math.random() * 2 + audio.bass * 1.8 + (mega ? 2 : 0));
+    const colorOffset = Math.floor(Math.random() * 3);
+    const lineParticles = this.buildLineParticles(shape, spokes, radius, scatter, colorOffset, lineEnergy, mega);
+    const dotParticles = this.buildDotParticles(shape, sparkCount, radius, scatter, colorOffset, mega);
+    const dustParticles = this.buildDustParticles(radius, colorOffset, mega);
+
+    this.bursts.push({
+      x, y, radius, life, born: time, ringCount, style: shape,
+      lineParticles, dotParticles, dustParticles,
+      dustDuration: 0.48 + Math.random() * 0.55 + (mega ? 0.18 : 0),
+      ringTilt: Math.random() * Math.PI * 2,
+      colorOffset,
+      mega,
+      stage,
+      maxStage,
+      childrenSpawned: false,
+      childTrigger: opts.childTrigger || (0.44 + Math.random() * 0.15),
+      childCount: opts.childCount || childBurstAmount,
+      parentAngle: opts.parentAngle || 0
+    });
+  },
+
+
+  queueManualBurst() {
+    this.pendingManualBursts = Math.min((this.pendingManualBursts || 0) + 1, 6);
+  },
+
+  triggerMegaBurst(width, height, time, audio) {
+    const count = audio.beat > 0.92 ? 2 : 1;
     for (let i = 0; i < count; i++) {
-      this.grains.push({
-        u: Math.random() * 2 - 1,
-        v: Math.random() * 2 - 1,
-        jx: (Math.random() * 2 - 1) * scatter,
-        jy: (Math.random() * 2 - 1) * scatter,
-        s: 0.55 + Math.random() * 1.2,
-        phase: Math.random() * Math.PI * 2
+      this.spawnBurst(width, height, time, audio, {
+        mega: true,
+        maxStage: Math.max(2, this.resolveStageDepth()),
+        radius: (VisualState.controls.fireworkSize || 76) * (1.15 + Math.random() * 0.45)
+      });
+    }
+    this.lastMegaAt = time;
+  },
+
+  updateSpawns(width, height, time, audio) {
+    const maxBursts = Math.round(VisualState.controls.fireworkMaxBursts || 8);
+    if ((this.pendingManualBursts || 0) > 0 && this.bursts.length < maxBursts) {
+      this.spawnBurst(width, height, time, audio, {});
+      this.pendingManualBursts -= 1;
+      this.cooldown = Math.max(this.cooldown, 0.12);
+    }
+    const spawnRate = (VisualState.controls.fireworkRate || 36) / 100;
+    const speed = VisualState.controls.speed || 1.2;
+    const megaSensitivity = (VisualState.controls.fireworkMegaSensitivity || 76) / 100;
+    this.cooldown -= 0.016 * speed;
+    const urgency = spawnRate * (0.34 + audio.high * 0.34 + audio.mid * 0.24 + audio.beat * 0.34);
+    const megaBeat = audio.beat > (0.76 + (1 - megaSensitivity) * 0.14) && (time - this.lastMegaAt > (1.55 - megaSensitivity * 0.65));
+    if (megaBeat && this.bursts.length < maxBursts) {
+      this.triggerMegaBurst(width, height, time, audio);
+      this.cooldown = fwClamp(0.18 + (1 - spawnRate) * 0.52, 0.06, 0.7);
+      return;
+    }
+
+    const shouldBurst = this.cooldown <= 0 && this.bursts.length < maxBursts && (Math.random() < urgency * 0.12 || audio.beat > 0.78);
+    if (shouldBurst) {
+      const spawnCount = audio.beat > 0.88 ? 2 : 1;
+      for (let i = 0; i < spawnCount && this.bursts.length < maxBursts; i++) this.spawnBurst(width, height, time, audio, {});
+      this.cooldown = fwClamp(0.14 + (1 - spawnRate) * 0.82 - audio.high * 0.14, 0.05, 1.2);
+    }
+  },
+
+  spawnChildBursts(burst, time, audio, width, height) {
+    if (burst.childrenSpawned || burst.stage >= burst.maxStage) return;
+    burst.childrenSpawned = true;
+    const nextStage = burst.stage + 1;
+    const count = fwClamp(burst.childCount + (burst.mega ? 1 : 0), 1, 10);
+    for (let i = 0; i < count; i++) {
+      const line = burst.lineParticles[(i * Math.floor(burst.lineParticles.length / Math.max(1, count) + 1)) % burst.lineParticles.length];
+      const bias = count <= 1 ? 0.5 : i / (count - 1);
+      let angle = line ? line.angle : Math.random() * Math.PI * 2;
+      if (burst.style === 'fan') angle += (bias - 0.5) * 0.2;
+      const stageSpread = nextStage === 2 ? 1.18 : nextStage >= 3 ? 1.34 : 1;
+      const dist = burst.radius * (0.34 + (burst.style === 'spiral' ? 0.18 : 0) + Math.random() * 0.22) * stageSpread;
+      const childX = burst.x + Math.cos(angle) * dist;
+      const childY = burst.y + Math.sin(angle) * dist;
+      let childShape = burst.style;
+      if (burst.style === 'spiral' && nextStage >= burst.maxStage) childShape = 'sphere';
+      if (burst.style === 'sphere' && nextStage === burst.maxStage && Math.random() < 0.4) childShape = 'chrysanthemum';
+      this.spawnBurst(width || window.innerWidth, height || window.innerHeight, time, audio, {
+        x: childX,
+        y: childY,
+        stage: nextStage,
+        maxStage: burst.maxStage,
+        shape: childShape,
+        radius: burst.radius * (burst.mega ? 0.58 : 0.46),
+        life: burst.life * 0.72,
+        childCount: Math.max(1, burst.childCount - 1),
+        mega: burst.mega && nextStage === 2,
+        parentAngle: angle,
+        childTrigger: 0.42 + Math.random() * 0.12
       });
     }
   },
 
-  field(u, v, n, m, harmonic, time, audio, drift) {
-    const bass = audio.bass || 0;
-    const high = audio.high || 0;
-    const t1 = time * (0.6 + drift * 0.8);
-    const t2 = time * (0.9 + drift * 1.4);
-    const x = (u + 1) * 0.5;
-    const y = (v + 1) * 0.5;
-    const f1 = Math.sin(n * Math.PI * x + Math.sin(t1 + y * 3) * drift * 0.18) * Math.sin(m * Math.PI * y + Math.cos(t1 + x * 4) * drift * 0.18);
-    const f2 = Math.sin(m * Math.PI * x - Math.cos(t2 + y * 2) * drift * 0.16) * Math.sin(n * Math.PI * y + Math.sin(t2 + x * 3) * drift * 0.16);
-    const f3 = Math.sin((n + 1) * Math.PI * x + t2 * 0.4) * Math.sin((m + 2) * Math.PI * y - t2 * 0.3);
-    const mix = (f1 - f2) + harmonic * (0.35 + high * 0.4) * f3 + bass * 0.08 * Math.sin((n + m) * Math.PI * (x + y) * 0.5 + t1);
-    return mix;
+  drawDust(ctx, burst, time, audio) {
+    const age = time - burst.born;
+    const dustAge = age - burst.life * 0.56;
+    if (dustAge <= 0) return;
+    const dustT = fwClamp(dustAge / burst.dustDuration, 0, 1);
+    const fade = 1 - dustT;
+    const p = VisualState.palette();
+    burst.dustParticles.forEach((dust, i) => {
+      const color = this.paletteColor(dust.colorIndex + 1, p);
+      const spread = burst.radius * 0.18 + dust.drift * dustT * (0.7 + audio.high * 0.45);
+      const angle = dust.angle + dust.orbit * dustT * 4;
+      const x = burst.x + Math.cos(angle) * spread + Math.cos(dust.wobble + age * 3.6) * 3.2 * fade;
+      const y = burst.y + Math.sin(angle) * spread + Math.sin(dust.wobble + age * 2.8) * 3.2 * fade;
+      const alpha = (0.05 + audio.high * 0.08 + (burst.mega ? 0.03 : 0)) * fade;
+      const size = dust.size * (0.9 + audio.high * 0.3 + dustT * 0.25);
+      fwDot(ctx, x, y, size, color, alpha);
+      if (i % 4 === 0) {
+        const tail = 4 + dustT * 8 + audio.mid * 3;
+        fwLine(ctx, x, y, x - Math.cos(angle) * tail, y - Math.sin(angle) * tail, color, alpha * 0.55, 0.45 + audio.high * 0.3);
+      }
+    });
   },
 
-  drawGuides(ctx, px, py, size, p, bass, mid, high) {
-    cp_drawBox(ctx, px, py, size, size, p.a, 0.06 + bass * 0.05, 1);
-    const inner = size * 0.08;
-    cp_drawBox(ctx, px + inner, py + inner, size - inner * 2, size - inner * 2, p.b, 0.03 + mid * 0.03, 1);
-    cp_drawLine(ctx, px, py + size * 0.5, px + size, py + size * 0.5, p.c, 0.025 + bass * 0.02, 0.7);
-    cp_drawLine(ctx, px + size * 0.5, py, px + size * 0.5, py + size, p.c, 0.025 + high * 0.02, 0.7);
+  drawBurst(ctx, burst, time, audio) {
+    const p = VisualState.palette();
+    const age = time - burst.born;
+    const t = fwClamp(age / burst.life, 0, 1);
+    const fade = 1 - t;
+    const bassBoost = 1 + audio.bass * 0.32 + (burst.mega ? 0.16 : 0);
+    const midBoost = 1 + audio.mid * 0.38 + (burst.style === 'chrysanthemum' ? 0.08 : 0);
+    const highBoost = 1 + audio.high * 0.48 + (burst.style === 'spiral' ? 0.12 : 0);
+    const expandT = 1 - Math.pow(1 - t, 2);
+
+    if (!burst.childrenSpawned && t > burst.childTrigger && burst.stage < burst.maxStage) {
+      this.spawnChildBursts(burst, time, audio, ctx.canvas?.width || window.innerWidth, ctx.canvas?.height || window.innerHeight);
+    }
+
+    burst.lineParticles.forEach((line, i) => {
+      const color = this.paletteColor(line.colorIndex, p);
+      let progress = fwClamp(expandT * line.speed * midBoost, 0, 1);
+      let angle = line.angle + Math.sin(age * 8 + i * 0.22) * line.bend * (1 - t);
+      if (burst.style === 'spiral') {
+        angle += expandT * 1.1;
+        progress = fwClamp(Math.pow(t, 0.85) * line.speed * highBoost, 0, 1);
+      }
+      const len = line.reach * progress * bassBoost;
+      const x2 = burst.x + Math.cos(angle) * len;
+      const y2 = burst.y + Math.sin(angle) * len;
+      const alpha = (0.14 + audio.mid * 0.34 + audio.beat * 0.1 + (burst.mega ? 0.08 : 0)) * fade;
+      fwLine(ctx, burst.x, burst.y, x2, y2, color, alpha, line.width * (0.9 + audio.mid * 0.72), line.dash);
+      if (t > 0.16) {
+        const tipLen = Math.min(11 + audio.high * 7 + (burst.mega ? 4 : 0), len * (burst.style === 'fan' ? 0.22 : 0.16));
+        fwLine(ctx, x2, y2, x2 - Math.cos(angle) * tipLen, y2 - Math.sin(angle) * tipLen, color, alpha * 0.75, 0.85 + audio.high * 0.85);
+      }
+      if (burst.style === 'chrysanthemum' && t > 0.2 && i % 2 === 0) {
+        const sideAngle = angle + Math.sin(i) * 0.32;
+        const sideLen = len * 0.16;
+        fwLine(ctx, x2, y2, x2 + Math.cos(sideAngle + 0.65) * sideLen, y2 + Math.sin(sideAngle + 0.65) * sideLen, color, alpha * 0.48, 0.7);
+        fwLine(ctx, x2, y2, x2 + Math.cos(sideAngle - 0.65) * sideLen, y2 + Math.sin(sideAngle - 0.65) * sideLen, color, alpha * 0.48, 0.7);
+      }
+    });
+
+    burst.dotParticles.forEach((spark, i) => {
+      const color = this.paletteColor(spark.colorIndex + 1, p);
+      let progress = fwClamp(Math.pow(t, 0.75) * spark.speed * highBoost, 0, 1);
+      let angle = spark.angle;
+      if (burst.style === 'spiral') angle += t * spark.orbit * 2.1;
+      const rr = spark.reach * progress;
+      const driftX = Math.cos(age * 2.5 + spark.twinkle) * spark.drift * t * 0.05;
+      const driftY = Math.sin(age * 2.1 + spark.twinkle) * spark.drift * t * 0.05;
+      const x = burst.x + Math.cos(angle) * rr + driftX;
+      const y = burst.y + Math.sin(angle) * rr + driftY;
+      const alpha = (0.22 + audio.high * 0.3 + (burst.mega ? 0.08 : 0)) * fade;
+      const size = spark.size * (1 + audio.high * 0.35 + audio.beat * 0.2 + (burst.mega ? 0.2 : 0));
+      fwDot(ctx, x, y, size, color, alpha);
+      const tailLen = spark.tail * (0.35 + audio.high * 0.56 + (burst.style === 'spiral' ? 0.18 : 0)) * fade;
+      if (audio.high > 0.12) fwLine(ctx, x, y, x - Math.cos(angle) * tailLen, y - Math.sin(angle) * tailLen, color, alpha * 0.7, 0.6 + audio.high * 0.85);
+    });
+
+    for (let r = 0; r < burst.ringCount; r++) {
+      const color = this.paletteColor(burst.colorOffset + r, p);
+      const ringProgress = fwClamp(t * (1.02 + r * 0.16) * bassBoost, 0, 1);
+      const rr = burst.radius * (0.24 + r * 0.18) * ringProgress;
+      const segments = 16 + Math.round(audio.mid * 14) + (burst.mega ? 8 : 0);
+      for (let s = 0; s < segments; s++) {
+        if ((s + r) % 2 === 1) continue;
+        let a1 = (s / segments) * Math.PI * 2 + burst.ringTilt + age * (0.15 + r * 0.03);
+        if (burst.style === 'fan') {
+          const fanMin = -Math.PI * 0.92;
+          const fanSpan = Math.PI * 1.84;
+          a1 = fanMin + (s / segments) * fanSpan + burst.ringTilt * 0.12;
+        }
+        if (burst.style === 'spiral') a1 += t * 1.25;
+        const a2 = a1 + Math.PI * 2 / segments * 0.58;
+        const x1 = burst.x + Math.cos(a1) * rr;
+        const y1 = burst.y + Math.sin(a1) * rr;
+        const x2 = burst.x + Math.cos(a2) * rr;
+        const y2 = burst.y + Math.sin(a2) * rr;
+        fwLine(ctx, x1, y1, x2, y2, color, (0.06 + audio.bass * 0.18 + (burst.mega ? 0.04 : 0)) * fade, 0.7 + audio.bass * 1.15);
+      }
+    }
+
+    if (burst.mega) {
+      const outer = burst.radius * (0.45 + expandT * 0.7);
+      for (let i = 0; i < 12; i++) {
+        const a1 = (i / 12) * Math.PI * 2 + age * 0.2;
+        const a2 = a1 + Math.PI / 8;
+        fwLine(ctx,
+          burst.x + Math.cos(a1) * outer,
+          burst.y + Math.sin(a1) * outer,
+          burst.x + Math.cos(a2) * outer,
+          burst.y + Math.sin(a2) * outer,
+          this.paletteColor(burst.colorOffset + i, p),
+          (0.08 + audio.beat * 0.16) * fade,
+          1 + audio.bass * 0.8
+        );
+      }
+    }
+
+    this.drawDust(ctx, burst, time, audio);
+    fwDot(ctx, burst.x, burst.y, 1.6 + audio.beat * 1.9 + (burst.mega ? 1.4 : 0), this.paletteColor(burst.colorOffset, p), (0.26 + audio.mid * 0.18) * fade);
   },
 
   draw(ctx, width, height, time, audio) {
-    const p = cp_scenePalette();
-    const bass = audio.bass || 0;
-    const mid = audio.mid || 0;
-    const high = audio.high || 0;
-    const beat = audio.beat || 0;
-
-    const density = Math.max(20, Math.floor((VisualState.controls.chladniDensity || 78) * cp_perfScale()));
-    const modeX = Math.max(1, Math.floor(VisualState.controls.chladniModeX || 3));
-    const modeYBase = Math.max(2, Math.floor(VisualState.controls.chladniModeY || 5));
-    const threshold = cp_norm(VisualState.controls.chladniThreshold, 34);
-    const drift = cp_norm(VisualState.controls.chladniDrift, 46);
-    const scatter = cp_norm(VisualState.controls.chladniScatter, 36) * 0.09;
-    const lineAlpha = cp_norm(VisualState.controls.chladniLineAlpha, 62);
-    const sparkle = cp_norm(VisualState.controls.chladniSparkle, 54);
-
-    const n = modeX + Math.round(bass * 3);
-    let m = modeYBase + Math.round(mid * 4);
-    if (m === n) m += 1;
-    const harmonic = 0.15 + high * 0.85;
-
-    const grainCount = Math.floor((density * density * 0.42) * (VisualState.scene === 'hybrid' ? 0.55 : 1));
-    this.ensureGrains(grainCount, scatter);
-    if (VisualState.scene === 'hybrid') this.trimForHybrid();
-
-    const plateSize = Math.min(width, height) * 0.62 * (1 + beat * 0.02 + bass * 0.03);
-    const px = (width - plateSize) * 0.5;
-    const py = (height - plateSize) * 0.5;
-    const cx = width * 0.5;
-    const cy = height * 0.5;
-    const rotation = Math.sin(time * 0.35) * drift * 0.05 + Math.sin(time * 1.1) * mid * 0.015;
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(rotation);
-    ctx.translate(-cx, -cy);
-
-    ctx.save();
-    ctx.fillStyle = rgba('#05070b', 0.18 + bass * 0.05);
-    ctx.fillRect(px, py, plateSize, plateSize);
-    ctx.restore();
-
-    this.drawGuides(ctx, px, py, plateSize, p, bass, mid, high);
-
-    const samples = Math.max(28, Math.floor(density * 0.7));
-    for (let row = 0; row < samples; row++) {
-      const v = -1 + (row / Math.max(1, samples - 1)) * 2;
-      let prev = null;
-      for (let col = 0; col < samples; col++) {
-        const u = -1 + (col / Math.max(1, samples - 1)) * 2;
-        const val = this.field(u, v, n, m, harmonic, time, audio, drift);
-        const node = Math.max(0, 1 - Math.abs(val) / (0.06 + threshold * 0.34));
-        const x = px + (u + 1) * 0.5 * plateSize;
-        const y = py + (v + 1) * 0.5 * plateSize;
-        if (node > 0.22) {
-          if (prev) {
-            cp_drawLine(ctx, prev.x, prev.y, x, y, (row + col) % 3 === 0 ? p.a : (row + col) % 3 === 1 ? p.b : p.c, 0.03 + node * 0.18 * lineAlpha, 0.45 + node * 0.85 + bass * 0.2);
-          }
-          prev = { x, y };
-        } else {
-          prev = null;
-        }
-      }
+    this.updateSpawns(width, height, time, audio);
+    const p = VisualState.palette();
+    const gridCount = 6;
+    for (let i = 0; i < gridCount; i++) {
+      const y = height * (0.14 + i * 0.12);
+      fwLine(ctx, 0, y, width, y, i % 2 ? p.a : p.c, 0.015 + audio.high * 0.016, 0.8, [4, 10]);
     }
-
-    for (let i = 0; i < this.grains.length; i++) {
-      const g = this.grains[i];
-      const tremorX = Math.sin(time * (1.6 + drift * 2.0) + g.phase) * drift * 0.02;
-      const tremorY = Math.cos(time * (1.9 + drift * 1.8) + g.phase) * drift * 0.02;
-      const u = cp_clamp(g.u + g.jx + tremorX, -1, 1);
-      const v = cp_clamp(g.v + g.jy + tremorY, -1, 1);
-      const val = this.field(u, v, n, m, harmonic, time, audio, drift);
-      const node = Math.max(0, 1 - Math.abs(val) / (0.05 + threshold * 0.30));
-      const x = px + (u + 1) * 0.5 * plateSize;
-      const y = py + (v + 1) * 0.5 * plateSize;
-
-      if (node > 0.06) {
-        const col = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
-        const alpha = 0.04 + node * 0.30 + sparkle * high * 0.12;
-        const radius = g.s * (0.35 + node * 1.15 + high * 0.12);
-        cp_drawGlowPoint(ctx, x, y, radius, col, alpha);
-        if (sparkle > 0.1 && high > 0.18 && i % Math.max(3, Math.floor(12 - sparkle * 8)) === 0) {
-          cp_drawLine(ctx, x - 1.8, y, x + 1.8, y, col, 0.05 + high * 0.12, 0.6);
-          cp_drawLine(ctx, x, y - 1.8, x, y + 1.8, col, 0.05 + high * 0.12, 0.6);
-        }
-      }
-    }
-
-    const exciterR = 3 + bass * 2.5;
-    const corners = [
-      [px, py], [px + plateSize, py], [px, py + plateSize], [px + plateSize, py + plateSize]
-    ];
-    corners.forEach((c, idx) => {
-      const col = idx % 2 === 0 ? p.c : p.b;
-      cp_drawGlowPoint(ctx, c[0], c[1], exciterR, col, 0.15 + beat * 0.08 + bass * 0.08);
-    });
-
-    ctx.restore();
+    this.bursts = this.bursts.filter((burst) => time - burst.born < burst.life + burst.dustDuration + 0.04);
+    this.bursts.forEach((burst) => this.drawBurst(ctx, burst, time, audio));
   }
 };

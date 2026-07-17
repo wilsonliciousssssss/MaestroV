@@ -2,6 +2,30 @@
 
 Newest first. Public product name: **Maestro V** (Alpha Omega Collective). Internal build numbers continue the original engine series.
 
+## V110 — Responsive: phones + tablets (2026-07-17)
+
+- **New `mobile.js` touch layer** (desktop untouched — activates only on touch devices):
+  - **Phone portrait = Live mode**: fixed bottom **quick bar** (MIC · Beat FX · prev/next scene · Randomise · fullscreen, which hides on iOS where the API doesn't exist); HUD converts to a **bottom sheet** (62dvh, grip toggles 94dvh) so visuals stay visible while adjusting; only Performance + Scene Controls panels start open; engine defaults to **Lite** perf with density/glow trimmed; canvas DPR capped at 1.5.
+  - **Tablets + landscape phones**: full HUD drawer with the touch layer.
+  - **Gestures**: pinch = camera zoom, two-finger horizontal drag = camera rotate (existing camera API, sliders stay in sync).
+- **Text/UI scaling** (`body.touch-ui` CSS ramp): labels/notes 9→11px, buttons 10→12px (min-height 44px), panel titles 11→13px, selects/inputs 16px (prevents iOS focus-zoom), slider tracks 30px with 22×30 thumbs, meters 24px, channel dots 20px.
+- **Layout plumbing**: `viewport-fit=cover` + safe-area insets (sheet, quick bar, HUD tab), `100dvh` HUD, `touch-action` hygiene, HUD tab becomes a floating square above the quick bar on phones.
+- Engine/scene logic untouched; smoke test extended (mobile defaults, scene cycling). Cache-busters `?v=110`, SW cache `maestrov-v110` (core list corrected to real request URLs).
+
+## V109 — Installable app icon + PWA (2026-07-17)
+
+- **Home-screen install with the ΛΩ logo**: real PNG app icons (180/192/512 + 512 maskable) — ink ground, white pixel-glitch ΛΩ, lime dashed pixel frame (the AOC primary-installable-icon rule).
+- `app.webmanifest` (name, fullscreen display, ink background, lime theme) + iOS metas (`apple-touch-icon`, web-app-capable, title).
+- `sw.js` service worker: network-first with versioned cache — the installed app keeps working offline after first load.
+- Static favicon fallback = icon-192 (brand.js still recolours the tab icon per channel at runtime).
+- Engine/scenes untouched. Cache-busters bumped to `?v=109`.
+
+## V108 — Flat repo layout (upload-proof) (2026-07-16)
+
+- **Why:** the first GitHub web-UI upload flattened the folder tree and dropped/corrupted files (`index.html`, `style.css`, `brand.js`, `audioEngine.js` missing; `config.js` ended up containing manifest JSON) — Pages served the README instead of the app.
+- **Fix:** the whole app is now **flat by design** — all files at the root, no folders to preserve. `index.html` references `./file.js?v=108`; smoke test and `npm test` updated; docs files live at root.
+- No engine/scene/brand logic changes from V107.
+
 ## V107 — Alpha Omega Collective rebrand + public release prep (2026-07-16)
 
 - Renamed product **Maestro → Maestro V**; title, HUD wordmark, boot labels, manifest updated.

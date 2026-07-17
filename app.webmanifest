@@ -1,0 +1,16 @@
+{
+  "name": "Maestro V — Alpha Omega Collective",
+  "short_name": "Maestro V",
+  "description": "Audio-reactive live visual engine for DJs. 16 scenes, mic or sound-card reactive, runs offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "background_color": "#0E0E10",
+  "theme_color": "#C6F000",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

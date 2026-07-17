@@ -1,901 +1,490 @@
+# V88 Notes
 
-:root {
-  /* — Alpha Omega Collective tokens (canonical: Attachments/brand/tokens.css) — */
-  --ao-ink: #0E0E10;
-  --ao-ink-2: #151519;
-  --ao-space: #08080C;
-  --ao-white: #F4F4F0;
-  --ao-fog: #8A8A98;
-  --ao-line: #2A2A32;
-  --ao-lime: #C6F000;
-  --ao-cobalt: #3E6BFF;
-  --ao-orange: #FF5A2C;
-  --ao-magenta: #FF2E9A;
-  --ao-teal: #7EE8D0;
-  --ao-glitch-cyan: #00DCFF;
-  --ao-glitch-magenta: #FF288F;
-  /* live channel — js/core/brand.js overrides these; lime is the signature */
-  --ao-ch: var(--ao-lime);
-  --ao-on-ch: var(--ao-ink);
-  --ao-ch-soft: rgba(198, 240, 0, 0.14);
+- Fixed Hybrid Mix issues when Firework and Missile layers are active.
+- Namespaced missile scene helper functions to avoid global helper conflicts with other scenes.
+- Added hybrid-safe draw handling for Firework and Missile scenes.
+- Added Hybrid Mix state caps for high-particle Firework and Missile systems.
+- Reduced Firework and Missile audio intensity slightly only inside Hybrid Mix for better stability.
+- Updated firework child-burst spawning to use active canvas dimensions.
 
-  /* — engine skin, mapped onto the tokens — */
-  --bg: var(--ao-space);
-  --panel: rgba(14, 14, 16, 0.86);
-  --panel-2: rgba(21, 21, 25, 0.9);
-  --line: rgba(244, 244, 240, 0.11);
-  --line-strong: rgba(244, 244, 240, 0.34);
-  --line-soft: rgba(244, 244, 240, 0.06);
-  --text: var(--ao-white);
-  --muted: rgba(244, 244, 240, 0.58);
-  --muted-2: rgba(244, 244, 240, 0.34);
-  --accent: var(--ao-ch);
-  --accent-soft: var(--ao-ch-soft);
-  --active-text: var(--ao-on-ch);
-  --ok: var(--ao-ch);
-  --hud-width: 420px;
-  --hud-tab-width: 42px;
-  --mono: "Space Mono", "Consolas", "Courier New", monospace;
-  --display: "Syne", "Archivo", system-ui, sans-serif;
-}
-* { box-sizing: border-box; }
-html, body {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--mono);
-}
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), rgba(255,255,255,0.02) calc(25% - 1px), rgba(255,255,255,0.02) 25%, transparent 25%, transparent calc(50% - 1px), rgba(255,255,255,0.02) calc(50% - 1px), rgba(255,255,255,0.02) 50%, transparent 50%, transparent calc(75% - 1px), rgba(255,255,255,0.02) calc(75% - 1px), rgba(255,255,255,0.02) 75%, transparent 75%),
-    linear-gradient(180deg, transparent 0, transparent calc(25% - 1px), rgba(255,255,255,0.02) calc(25% - 1px), rgba(255,255,255,0.02) 25%, transparent 25%, transparent calc(50% - 1px), rgba(255,255,255,0.02) calc(50% - 1px), rgba(255,255,255,0.02) 50%, transparent 50%, transparent calc(75% - 1px), rgba(255,255,255,0.02) calc(75% - 1px), rgba(255,255,255,0.02) 75%, transparent 75%);
-  opacity: 0.35;
-  z-index: 0;
-}
-#stage { position: fixed; inset: 0; background: var(--bg); }
-#threeCanvas, #pixiCanvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-#threeCanvas { z-index: 1; }
-#pixiCanvas { z-index: 2; pointer-events: none; }
-.hud-tab {
-  position: fixed;
-  right: 0;
-  top: 88px;
-  z-index: 31;
-  width: var(--hud-tab-width);
-  min-height: 146px;
-  display: grid;
-  place-items: center;
-  background: rgba(10,10,10,0.98);
-  color: var(--text);
-  border: 1px solid var(--line-strong);
-  border-right: 0;
-  border-radius: 0;
-  box-shadow: -10px 0 20px rgba(0,0,0,0.35);
-  transition: right 260ms ease, background 180ms ease, color 180ms ease, border-color 180ms ease;
-  cursor: pointer;
-}
-.hud-tab span {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  font-size: 10px;
-  letter-spacing: 4px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-.hud-tab::before,
-.hud-tab::after {
-  content: "";
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  height: 1px;
-  background: rgba(255,255,255,0.16);
-}
-.hud-tab::before { top: 10px; }
-.hud-tab::after { bottom: 10px; }
-.hud-tab.active {
-  right: min(var(--hud-width), calc(100vw - 36px));
-  background: #f2f2ee;
-  color: #000;
-  border-color: rgba(255,255,255,0.82);
-}
-.hud {
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: var(--hud-width);
-  max-width: calc(100vw - 36px);
-  height: 100vh;
-  z-index: 30;
-  padding: 16px 14px 22px;
-  overflow-y: auto;
-  transform: translateX(100%);
-  transition: transform 260ms ease;
-  background:
-    linear-gradient(180deg, rgba(4,4,4,0.96), rgba(0,0,0,0.9)),
-    repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 44px),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 62px);
-  border-left: 1px solid rgba(255,255,255,0.22);
-  box-shadow: -24px 0 60px rgba(0,0,0,0.56);
-}
-.hud.open { transform: translateX(0); }
-.hud::-webkit-scrollbar { width: 8px; }
-.hud::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); }
-.hud-header {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-  padding: 12px 12px 14px;
-  background: rgba(16,16,16,0.88);
-  border: 1px solid var(--line);
-}
-.hud-header::before,
-.hud-header::after,
-.panel::before,
-.panel::after {
-  content: "";
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  border-top: 1px solid rgba(255,255,255,0.6);
-  border-left: 1px solid rgba(255,255,255,0.6);
-  top: -1px;
-  left: -1px;
-}
-.hud-header::after,
-.panel::after {
-  left: auto;
-  right: -1px;
-  border-left: 0;
-  border-right: 1px solid rgba(255,255,255,0.6);
-}
-.hud-header h1 {
-  margin: 0;
-  font-size: 22px;
-  line-height: 1;
-  letter-spacing: 3px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-.hud-header p {
-  margin: 7px 0 0;
-  color: var(--muted);
-  font-size: 10px;
-  letter-spacing: 1.8px;
-  text-transform: uppercase;
-}
-.status-pill {
-  min-width: 78px;
-  text-align: center;
-  padding: 7px 10px;
-  border: 1px solid rgba(255,255,255,0.5);
-  background: rgba(255,255,255,0.04);
-  color: var(--text);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-}
-.panel {
-  position: relative;
-  margin-bottom: 12px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(12,12,12,0.96), rgba(4,4,4,0.92));
-}
-.panel h2 {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 0 10px;
-  font-size: 11px;
-  color: var(--text);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  font-weight: 800;
-}
-.panel h2::after {
-  content: "";
-  display: block;
-  flex: 1;
-  height: 1px;
-  margin-left: 10px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.25), rgba(255,255,255,0.02));
-}
-label,
-.slider-row span,
-.meter-row,
-.panel-note,
-.control-status,
-.small-note p {
-  font-size: 9px;
-  line-height: 1.2;
-  letter-spacing: 1.3px;
-  text-transform: uppercase;
-}
-label { display: block; color: var(--muted); margin: 10px 0 6px; }
-select,
-button,
-input[type="number"],
-textarea {
-  width: 100%;
-  border-radius: 0;
-  font-family: var(--mono);
-  font-weight: 800;
-  text-transform: uppercase;
-}
-select,
-input[type="number"],
-textarea {
-  background: rgba(245,245,245,0.06);
-  color: var(--text);
-  border: 1px solid var(--line);
-  padding: 9px 10px;
-  font-size: 11px;
-  letter-spacing: 1px;
-}
-button {
-  position: relative;
-  min-height: 37px;
-  padding: 8px 10px;
-  background: linear-gradient(180deg, rgba(32,32,32,0.88), rgba(7,7,7,0.96));
-  color: var(--text);
-  border: 1px solid rgba(255,255,255,0.2);
-  font-size: 10px;
-  letter-spacing: 1.2px;
-  cursor: pointer;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 120ms ease;
-}
-button::before,
-button::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  width: 4px;
-  height: 16px;
-  transform: translateY(-50%);
-  border-top: 1px solid rgba(255,255,255,0.5);
-  border-bottom: 1px solid rgba(255,255,255,0.5);
-}
-button::before { left: 7px; border-left: 1px solid rgba(255,255,255,0.5); }
-button::after { right: 7px; border-right: 1px solid rgba(255,255,255,0.5); }
-button:hover {
-  border-color: rgba(255,255,255,0.58);
-  background: linear-gradient(180deg, rgba(52,52,52,0.98), rgba(10,10,10,0.98));
-}
-button:active { transform: translateY(1px); }
-button.active {
-  background: linear-gradient(180deg, rgba(248,248,245,1), rgba(204,204,204,0.95));
-  color: #000;
-  border-color: rgba(255,255,255,0.9);
-}
-.button-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.slider-stack { display: grid; gap: 8px; }
-.slider-row {
-  display: grid;
-  grid-template-columns: 100px 1fr 44px;
-  gap: 8px;
-  align-items: center;
-  min-height: 26px;
-}
-.slider-row span { color: var(--muted); }
-.slider-row strong {
-  color: var(--text);
-  text-align: right;
-  font-size: 10px;
-  letter-spacing: 0.8px;
-}
-input[type="range"] {
-  width: 100%;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 16px;
-  background: transparent;
-}
-input[type="range"]::-webkit-slider-runnable-track {
-  height: 16px;
-  background:
-    linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.08)),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 10px);
-  border: 1px solid rgba(255,255,255,0.16);
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  margin-top: -1px;
-  width: 10px;
-  height: 18px;
-  background: #fff;
-  border: 1px solid #000;
-}
-input[type="range"]::-moz-range-track {
-  height: 16px;
-  background:
-    linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.08)),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.16) 0 2px, transparent 2px 10px);
-  border: 1px solid rgba(255,255,255,0.16);
-}
-input[type="range"]::-moz-range-thumb {
-  width: 10px;
-  height: 18px;
-  background: #fff;
-  border: 1px solid #000;
-}
-.meter-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--muted);
-  margin-top: 7px;
-}
-.meter-row strong {
-  color: var(--text);
-  font-size: 11px;
-  letter-spacing: 1px;
-}
-.meter {
-  position: relative;
-  height: 18px;
-  margin-top: 3px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.2)),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.16) 0 10px, transparent 10px 14px);
-  overflow: hidden;
-}
-.meter i {
-  display: block;
-  position: relative;
-  height: 100%;
-  width: 0%;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.92), rgba(200,200,200,0.98));
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.28);
-  transition: width 80ms linear;
-}
-.control-status {
-  margin-top: 8px;
-  min-height: 20px;
-  padding: 5px 8px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  color: var(--text);
-}
-.small-note { opacity: 0.88; }
-.small-note p { margin: 0; color: var(--muted); }
-.panel-note { color: var(--muted-2); margin-bottom: 8px; }
-.inline-row {
-  display: grid;
-  grid-template-columns: 1fr 110px;
-  gap: 8px;
-  align-items: end;
-}
-.toggle-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.toggle-chip { min-height: 34px; font-size: 9px; line-height: 1.2; }
-#sceneControls .slider-row { grid-template-columns: 110px 1fr 44px; }
-button:focus-visible,
-select:focus-visible,
-input[type="range"]:focus-visible,
-input[type="number"]:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid rgba(255,255,255,0.8);
-  outline-offset: 2px;
-}
-button:disabled { opacity: 0.45; cursor: not-allowed; }
-@media (max-width: 520px) {
-  :root { --hud-width: calc(100vw - 36px); --hud-tab-width: 36px; }
-  .hud { padding: 10px 10px 16px; }
-  .hud-tab { top: 72px; min-height: 120px; }
-  .hud-header h1 { font-size: 18px; }
-  .button-grid, .toggle-grid { grid-template-columns: 1fr; }
-  .slider-row { grid-template-columns: 82px 1fr 38px; }
-  #sceneControls .slider-row { grid-template-columns: 92px 1fr 38px; }
-}
+# V85 Notes
+
+- Added missile controls: Debris Amount, Debris Gravity, Debris Lifetime, EMP Radius, EMP Ring Count, Interference Strength.
+- Added falling debris after impacts.
+- Added EMP pulse rings and tactical grid interference.
+- Improved differentiation between EMP, burst sphere, shrapnel, and ring pulse explosions.
+
+# V84 Notes
+
+- Added missile controls: Cluster Split Amount and Heavy Rocket Chance.
+- Added **Missile Type** selector to the Missile Scene UI.
+- Added **Random Type** button.
+- Added missile type behaviours: Standard, Fast Dart, Heavy Rocket, Cluster Missile, Guided Missile.
+- Added visible cluster child missiles and mini follow-up impacts.
+
+# V83 Notes
+
+- Added missile controls: Launch Shockwave, Target Lock Strength, Impact Warning Pulse, Mega Missile Power.
+- Added **Trigger Mega Missile** button in the Missile Scene UI.
+- Added launch shockwave rings for ignition.
+- Improved target-lock reticles and impact warning behaviour.
+- Added larger manual mega-missile launches with stronger explosion weight.
+
+# V82 Notes
+
+- Added **Missile Scene UI** for Pixel Missile Barrage.
+- Added **Barrage Mode** selector: Random / Vertical / Side / Crossfire.
+- Added **Split Mode** selector: Random / Rare / Normal / Heavy.
+- Added **Explosion Mode** selector: Random / EMP Rings / Burst Sphere / Shrapnel / Ring Pulse.
+- Added **Random Missiles**, **Random Barrage**, **Random Explosion**, and **Trigger Missile** buttons.
+- Added missile controls: **Reticle Size** and **Engine Flicker**.
+- Improved missile scene variation and manual control while preserving audio-reactive behaviour.
+
+# V81 Notes
+
+- Rebuilt the **Pixel Missile Barrage** scene with stronger structure and richer animation.
+- Added missile controls:
+  - Target Scatter
+  - Trail Length
+  - Guidance Motion
+- Improved low / bass response: launch intensity, arc lift, explosion ring weight.
+- Improved mid response: target guidance sway, lock lines, targeting box activity.
+- Improved high response: engine flicker, spark fragments, trail accents, burst energy.
+- Added persistent explosion bursts for a fuller visual finish after missile detonation.
+
+# V80 Notes
+
+- Added **Random Stage** option to the **Multistage Fireworks** dropdown.
+- Added **Random Stage Mode** quick button in the Firework Scene UI.
+- When Random Stage is enabled, each new firework burst now picks a stage depth of 1, 2, or 3 automatically.
+- Retained the fixed-stage random buttons for Random 1 Stage / Random 2 Stage / Random 3 Stage.
+
+# V79 Notes
+
+- Added **Random 1 Stage**, **Random 2 Stage**, and **Random 3 Stage** buttons to the Firework Scene UI.
+- These new buttons randomise firework parameters while forcing a specific stage depth.
+- Stage 2 child bursts now spawn slightly farther from the parent burst.
+- Stage 3 child bursts now spawn even farther for a more spread-out multi-stage look.
+
+# V78 Notes
+
+- Added **Iris Scene UI** block inside Scene Controls when Iris Kaleidoscope is selected.
+- Added iris presets:
+  - Soft Iris
+  - Mechanical Iris
+  - Organic Iris
+  - Aggressive Iris
+- Added **Random Iris** and **Low Glow Iris** buttons.
+- Added new iris controls:
+  - Inner Rotation
+  - Outer Rotation
+  - Pupil Pulse
+  - Fibre Shimmer
+  - Symmetry Warp
+- Improved iris animation by connecting these new controls to layered counter-rotation, aperture motion, fibre shimmer and slice warping.
+
+# V77 Notes
+
+- Refined the **Iris Kaleidoscope** scene to reduce visual heaviness.
+- Added **Iris Opacity** control.
+- Added **Iris Glow** control.
+- Added **Petal Motion** control.
+- Added **Morph Speed** control.
+- Reduced default iris glow and colour opacity for a cleaner, more technical look.
+- Animated the iris shape using petal deformation, slice warping, layered counter-rotation, and fibre motion.
+
+# V76 Notes
+
+- Added **Dust Amount** control for the firework scene.
+- Added **Dust Size** control for the firework scene.
+- Added **Trigger Firework** button for manual burst triggering.
+- Manual trigger uses the current firework settings and spawns a burst on demand.
+- Updated random firework control to randomise dust amount and dust size.
+
+# V75 Notes
+
+- Added **Child Bursts** scene control for the firework scene.
+- Child burst amount can now be adjusted directly from Scene Controls.
+- Added lingering **dust dots** after each burst to make explosions feel fuller and less abrupt.
+- Dust dots drift outward and fade after the main firework burst.
+- Updated Random Fireworks control so it also randomises child burst amount.
+
+# V74 Notes
+
+- Added a dedicated **Firework Scene UI** block inside Scene Controls.
+- Added **Multistage Fireworks** select control.
+- Added **Burst Shape Mode** select control.
+- Added **Random Fireworks** control to randomise scene parameters quickly.
+- Added **Random Shape** quick control.
+- Firework UI controls sync back to the scene sliders automatically.
+
+# V73 Notes
+
+- Upgraded Firework Burst Grid into a **multi-stage firework system**.
+- Added child burst spawning so fireworks can split into smaller secondary bursts.
+- Added **Shape Mode** control:
+  - `0` = Random
+  - `1` = Sphere
+  - `2` = Fan
+  - `3` = Chrysanthemum
+  - `4` = Spiral
+- Added **Stage Depth** control to set how many burst stages are allowed.
+- Added **Mega Burst Sense** control and beat-triggered mega bursts on stronger beat peaks.
+- Mega bursts now spawn larger multi-ring structures and may emit extra child bursts.
+
+# V72 Notes
+
+- Added a new scene: **Firework Burst Grid**.
+- Fireworks burst from random points across the screen instead of launching only from the bottom.
+- Visual language uses **dots and lines** for a clean HUD / tactical feel.
+- Added scene controls:
+  - Burst Rate
+  - Max Bursts
+  - Burst Size
+  - Scatter
+  - Line Energy
+- Audio mapping for Firework Burst Grid:
+  - Low / bass: larger firework scale and stronger segmented ring pulses
+  - Mid: more spoke visibility and denser structural line geometry
+  - High: more spark dots, brighter twinkle and longer spark tails
+
+# V71 Notes
+
+- Added separate **Dot Size** and **Symbol Size** controls to Data Constellation.
+- Added **Drift Mode** control with 3 states:
+  - `0` = Free Drift
+  - `1` = Center Pull
+  - `2` = Cluster Mode
+- Added **Cluster Count** control so the constellation can split into multiple groups.
+- Added true dot nodes back into the visual mix, while keeping stars, pluses, diamonds and box symbols.
+- Updated motion logic so random drift remains active in all modes, while center pull and cluster pull are optional overlays rather than forcing all nodes into one point.
+
+# V70 Notes
+
+- Added **Symbol Size** control to the Data Constellation scene so dot / symbol size can be adjusted directly inside the scene controls.
+- Added **Center Pull** control to reduce or increase how strongly the constellation field drifts toward the central attractor.
+- Updated node motion so the constellation drifts more randomly and organically, with unique per-node wander behaviour.
+- Normal nodes now stay more distributed across the canvas instead of all collapsing toward the center, while hub nodes still retain a lighter orbital pull.
+
+# V69 Notes
+
+- Reworked **Data Constellation** to remove the soft glow look and replace it with sharper line / box based visuals.
+- Node symbols now favour boxes, plus signs, stars and diamonds instead of glow dots.
+- Replaced glow sparks with travelling data packets rendered as mini boxes / diamonds moving across links.
+- Improved mic mapping for Data Constellation:
+  - Low / bass: stronger center attraction, larger hub frames, heavier network breathing
+  - Mid: wider connection reach, stronger lattice panels, more visible structural links
+  - High: faster scan rails, sharper symbol activity, more travelling signal packets
+- Improved **Iris Kaleidoscope** to feel more kaleidoscopic and less soft-glow based.
+- Added sharper mirrored shard layers, recursive frame boxes, segmented ring patterns, star/box orbit markers, and stronger inward vortex geometry.
+- Iris audio mapping now feels clearer:
+  - Low / bass: pupil breathing and portal depth pulse
+  - Mid: shard visibility, ring segmentation and structural density
+  - High: orbit marker activity, fine fibre shimmer and sharper mirror detail
+
+# V68 Notes
+
+- Upgraded Data Constellation with star (`*`) and plus (`+`) style point symbols, rings and hub markers.
+- Added distance-based solid / dashed link behaviour and travelling signal sparks across active links.
+- Added stronger mic-driven reactions:
+  - Low / bass: center attraction, bigger hubs, heavier network breathing
+  - Mid: wider connection reach and stronger link visibility
+  - High: symbol shimmer, brighter spark pulses and faster scan beams
+- Added three new Data Constellation controls: Symbol Mix, Signal Hubs, Link Pulse.
+
+# V67 Notes
+
+- Added new Pixi scene: Iris Kaleidoscope.
+- Added Iris scene to the scene dropdown and Hybrid Mix layer system.
+- Added scene controls for symmetry, petal length, pupil aperture, prism complexity, rotation, breathing pulse, spark particles, iris fibre density, and portal depth.
+- Iris scene reacts to bass, mid, high, beat pulse, palette selection, glow, speed, density, pulse, and performance mode.
+- Preserved V66 projected-text controls and all existing scenes.
 
 
-/* V61 Custom Colour Module */
-.colour-module {
-  margin: 10px 0 12px;
-  padding: 10px;
-  border: 1px solid rgba(255,255,255,0.13);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.18)),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.045) 0 1px, transparent 1px 18px);
-}
-.module-title {
-  margin-bottom: 8px;
-  color: var(--text);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-}
-.colour-box-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-  margin: 8px 0;
-}
-.colour-box-label {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  cursor: pointer;
-  position: relative;
-}
-.colour-box-label span {
-  color: var(--muted);
-  font-size: 8px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-.colour-box {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 44px;
-  border: 1px solid rgba(255,255,255,0.42);
-  background: #fff;
-  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.35);
-}
-.colour-box::before,
-.colour-box::after {
-  content: "";
-  position: absolute;
-  width: 9px;
-  height: 9px;
-  border-color: rgba(255,255,255,0.92);
-  border-style: solid;
-}
-.colour-box::before {
-  left: -1px;
-  top: -1px;
-  border-width: 1px 0 0 1px;
-}
-.colour-box::after {
-  right: -1px;
-  bottom: -1px;
-  border-width: 0 1px 1px 0;
-}
-.colour-box-label input[type="color"] {
-  position: absolute;
-  inset: 18px 0 0 0;
-  width: 100%;
-  height: 44px;
-  opacity: 0;
-  cursor: pointer;
-}
-@media (max-width: 520px) {
-  .colour-box-grid { grid-template-columns: 1fr; }
-  .colour-box { height: 38px; }
-}
+# V62 Notes
+
+- Recovered stronger nightclub scene identity inspired by the earlier V44 direction.
+- Added scene mixer controls so Hybrid Mix can include or exclude individual scenes.
+- Added transition controls with auto-switch and seconds input.
+- Added Atomic Viral Matrix scene.
+- Retuned visuals: brighter points, lighter links, denser fields, deeper motion, stronger audio response.
 
 
-/* V62 Text Projection Module */
-.hud-textarea {
-  min-height: 96px;
-  resize: vertical;
-  background: rgba(245,245,245,0.05);
-  color: var(--text);
-  border: 1px solid var(--line);
-  padding: 10px;
-  font-size: 11px;
-  line-height: 1.45;
-  letter-spacing: 0.8px;
-  text-transform: none;
-}
-.text-inline-row {
-  grid-template-columns: 1fr 120px;
-}
-@media (max-width: 520px) {
-  .text-inline-row { grid-template-columns: 1fr; }
-}
-
-.compact-note { margin-top: 6px; font-size: 10px; line-height: 1.35; }
+## V61
+- Added Sound Card audio input button.
+- Added audio source cycle button.
+- Added source readout in the Audio Reactive Hub.
+- AudioEngine now supports microphone input, system/tab audio input, and fallback synthetic input.
+- Added keyboard shortcut S for sound-card capture.
 
 
-/* V74 Firework Scene UI Controls */
-.scene-ui-module {
-  margin-bottom: 10px;
-  padding: 10px;
-  border: 1px solid rgba(255,255,255,0.13);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.18)),
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 20px);
-}
-.scene-ui-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.scene-ui-grid label {
-  margin-top: 0;
-}
-@media (max-width: 520px) {
-  .scene-ui-grid { grid-template-columns: 1fr; }
-}
+## V61
+- Added 4-Beat FX toggle.
+- Beat FX can now react only on every fourth detected beat/bass pulse.
+- Added Beat FX Mode readout showing Interval or 4-Beat counter.
+- Added keyboard shortcut G for 4-Beat FX.
 
 
-/* V88 Atomic Scene UI layout */
-.atomic-ui-module {
-  border-color: rgba(255,255,255,0.18);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
-}
-.atomic-preset-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.atomic-preset-button {
-  min-height: 42px;
-  font-size: 9px;
-  letter-spacing: 1px;
-}
-.scene-action-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-@media (max-width: 760px) {
-  .atomic-preset-grid, .scene-action-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-@media (max-width: 520px) {
-  .atomic-preset-grid, .scene-action-grid {
-    grid-template-columns: 1fr;
-  }
-}
+## V61 HUD Reskin
+- Updated the control HUD to a monochrome technical dashboard style inspired by the provided reference.
+- Product name changed to Maestro.
+- Restyled buttons, panels, meters, sliders, and overall interface hierarchy.
 
 
-/* V90 UI Organisation */
-.v90-organised .hud-header {
-  position: sticky;
-  top: 0;
-  z-index: 8;
-  backdrop-filter: blur(12px);
-}
-
-.panel-toggle {
-  width: 100%;
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.panel-toggle span {
-  font-size: 11px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
-
-.panel-toggle i {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 999px;
-  font-style: normal;
-  opacity: 0.8;
-}
-
-.panel-collapsed > *:not(.panel-toggle) {
-  display: none !important;
-}
-
-.panel-live {
-  border-color: rgba(121,247,255,0.22);
-  box-shadow: inset 0 0 0 1px rgba(121,247,255,0.05), 0 0 24px rgba(0,0,0,0.14);
-}
-
-.live-cockpit {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 10px 0 12px;
-}
-
-.live-cockpit > div {
-  padding: 8px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.035);
-}
-
-.live-cockpit span {
-  display: block;
-  font-size: 8px;
-  opacity: 0.65;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin-bottom: 3px;
-}
-
-.live-cockpit strong {
-  display: block;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.panel-scene-controls {
-  border-color: rgba(255,255,255,0.18);
-}
-
-.panel-small-note, .small-note {
-  opacity: 0.75;
-}
-
-@media (max-width: 540px) {
-  .live-cockpit {
-    grid-template-columns: 1fr;
-  }
-}
+## V61
+- Fixed scene visibility issue caused by Pixi/2D upper canvas accumulating black opacity.
+- Added transparent trail fade for the upper visual canvas.
+- Added guarded scene rendering for Pixi and 3D scene layers.
 
 
-/* V91 Beat Automation */
-.panel-automation {
-  border-color: rgba(255, 180, 80, 0.22);
-  background:
-    linear-gradient(180deg, rgba(255,180,80,0.04), rgba(0,0,0,0.12)),
-    rgba(10,12,18,0.72);
-}
-
-.panel-automation .compact-note span {
-  color: #ffd18a;
-  font-weight: 700;
-}
-
-.panel-automation input[type="number"] {
-  width: 100%;
-  min-height: 34px;
-  padding: 6px 8px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(0,0,0,0.28);
-  color: inherit;
-  font: inherit;
-}
+## V61
+- Fixed camera zoom / rotate functionality.
+- Added mouse-wheel zoom and right/shift-drag rotation.
+- Added Reset Camera button.
+- Added global camera transform for both visual canvas layers.
+- Removed duplicate Orbit Geometry camera zoom transform.
 
 
-/* V92 Performance Monitor */
-.panel-monitor {
-  border-color: rgba(80, 255, 180, 0.22);
-  background:
-    linear-gradient(180deg, rgba(80,255,180,0.04), rgba(0,0,0,0.12)),
-    rgba(10,12,18,0.72);
-}
-
-.monitor-grid,
-.monitor-state-grid {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.monitor-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.monitor-state-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.monitor-grid > div,
-.monitor-state-grid > div {
-  min-height: 46px;
-  padding: 8px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.035);
-}
-
-.monitor-grid span,
-.monitor-state-grid span {
-  display: block;
-  font-size: 8px;
-  opacity: 0.65;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin-bottom: 3px;
-}
-
-.monitor-grid strong,
-.monitor-state-grid strong {
-  display: block;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.25;
-  color: #9fffd4;
-}
-
-@media (max-width: 760px) {
-  .monitor-grid,
-  .monitor-state-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 520px) {
-  .monitor-grid,
-  .monitor-state-grid {
-    grid-template-columns: 1fr;
-  }
-}
+## V61
+- Fixed several sliders that existed in the HUD but were not visibly connected.
+- Added global controlled colour conversion for hue/saturation/brightness/contrast/color cycle.
+- Added gradient opacity support.
+- Added pulse control influence across visual layers.
+- Added pixel size influence to Matrix and Missile scenes.
+- Added Hybrid Mix / Hybrid Scene Depth influence.
 
 
-/* V94 Mobius Scene UI */
-.mobius-ui-module {
-  border-color: rgba(160, 120, 255, 0.22);
-  box-shadow: inset 0 0 0 1px rgba(160,120,255,0.05);
-}
-
-.mobius-preset-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.mobius-preset-button {
-  min-height: 42px;
-  font-size: 9px;
-  letter-spacing: 1px;
-}
-
-.mobius-preset-button.active {
-  border-color: rgba(160, 120, 255, 0.55);
-  box-shadow: 0 0 18px rgba(160,120,255,0.12);
-}
-
-@media (max-width: 760px) {
-  .mobius-preset-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 520px) {
-  .mobius-preset-grid {
-    grid-template-columns: 1fr;
-  }
-}
+## V61
+- Added 2-bar Colour Beat FX toggle.
+- Colour changes now react to beat/bass pulse counting and shift palette every 8 beat pulses (2 bars in 4/4).
+- On each 2-bar trigger, Maestro updates palette, hue shift, saturation, brightness, contrast, color cycle, and gradient settings.
+- Added HUD button, readout, and V keyboard shortcut for Colour Beat FX.
 
 
-/* V97 Code Glitch Scene UI */
-.codeglitch-ui-module {
-  border-color: rgba(120, 247, 255, 0.22);
-  box-shadow: inset 0 0 0 1px rgba(120,247,255,0.05);
-}
-.codeglitch-preset-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.codeglitch-preset-button {
-  min-height: 42px;
-  font-size: 9px;
-  letter-spacing: 1px;
-}
-.codeglitch-preset-button.active {
-  border-color: rgba(120, 247, 255, 0.55);
-  box-shadow: 0 0 18px rgba(120,247,255,0.12);
-}
-@media (max-width: 760px) {
-  .codeglitch-preset-grid { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 520px) {
-  .codeglitch-preset-grid { grid-template-columns: 1fr; }
-}
+## V61
+- Added custom colour picker module.
+- Added three clickable colour boxes: Primary, Secondary, Accent.
+- Added Custom Colours toggle.
+- Connected custom colours to scenes and gradient rendering through VisualState.palette().
 
 
-/* ============================================================
-   V107 — ALPHA OMEGA COLLECTIVE BRAND LAYER
-   Structure stays monochrome-technical; the live channel
-   (--ao-ch) carries every accent. Corners stay sharp — 0.
-   ============================================================ */
-.hud-header h1 {
-  font-family: var(--display);
-  letter-spacing: 2px;
-  text-shadow: -1.5px 0 var(--ao-glitch-cyan), 1.5px 0 var(--ao-glitch-magenta);
-}
-.brand-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
-#brandMark {
-  width: 27px;
-  height: 27px;
-  flex: 0 0 auto;
-  image-rendering: pixelated;
-  border: 1px solid var(--line);
-}
-.brand-sub .brand-aoc { color: var(--ao-ch); }
-.brand-right { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
-.ch-dots { display: flex; gap: 6px; }
-.ch-dot {
-  width: 14px;
-  height: 14px;
-  min-height: 14px;
-  padding: 0;
-  border: 1px solid var(--line-strong);
-  background: var(--ch, var(--ao-white));
-  cursor: pointer;
-}
-.ch-dot::before, .ch-dot::after { display: none; }
-.ch-dot:hover { border-color: var(--ao-white); background: var(--ch, var(--ao-white)); }
-.ch-dot.active { outline: 2px solid var(--ao-white); outline-offset: 1px; }
+## V62
+- Added Text Projection module to project text at the centre of the scene.
+- Added multiline text input.
+- Added text size, letter spacing, and line spacing controls.
+- Added font-theme selector and palette-linked text colour source selector.
+- Text rendering uses the active palette or custom colours with existing hue / saturation / brightness / contrast controls.
 
-.status-pill {
-  border-color: var(--ao-ch);
-  color: var(--ao-ch);
-  background: var(--ao-ch-soft);
-}
-button.active {
-  background: var(--ao-ch);
-  color: var(--ao-on-ch);
-  border-color: var(--ao-ch);
-}
-button.active::before, button.active::after { border-color: rgba(14, 14, 16, 0.55); }
-.hud-tab.active {
-  background: var(--ao-ch);
-  color: var(--ao-on-ch);
-  border-color: var(--ao-ch);
-}
-.meter i {
-  background: linear-gradient(180deg, var(--ao-ch), var(--ao-ch));
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28);
-}
-input[type="range"]::-webkit-slider-thumb { background: var(--ao-ch); border: 1px solid var(--ao-ink); }
-input[type="range"]::-moz-range-thumb { background: var(--ao-ch); border: 1px solid var(--ao-ink); }
-button:focus-visible,
-select:focus-visible,
-input[type="range"]:focus-visible,
-input[type="number"]:focus-visible,
-textarea:focus-visible,
-.ch-dot:focus-visible {
-  outline: 2px solid var(--ao-ch);
-  outline-offset: 2px;
-}
-.panel-toggle i { border-radius: 0; } /* brand rule: sharp corners everywhere */
-.byline {
-  margin: 10px 0 0;
-  color: var(--muted-2);
-  font-size: 8px;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  text-align: center;
-}
-@media (max-width: 520px) {
-  .brand-right { align-items: flex-end; }
-  .ch-dot { width: 16px; height: 16px; min-height: 16px; }
-}
+
+## V63
+- Added Matrix scene font-size control.
+- Added Matrix scene line-spacing control.
+- Added Matrix scene random font-size control.
+- Matrix code columns now vary around the chosen base size while respecting the random-size slider.
+
+
+## V64
+- Added text layer placement controls for behind-scene and above-scene rendering.
+- Added three extra projected-text fonts for a total of eight numbered font options.
+- Added Text Glow slider control.
+- Added Glow Colour Source selector separate from Text Colour Source.
+- Updated the text-projection HUD so font selection is presented as numbered options.
+
+
+## V66
+- Added projected-text rotation control.
+- Added projected-text X and Y position controls.
+- Added projected-text opacity control.
+- Added projected-text animation mode selector with pulse, flicker, scan, drift, and type-on modes.
+- Updated text rendering logic to support layered motion effects while preserving existing colour and glow settings.
+
+
+## V87 – Atomic Viral Ecosystem Upgrade
+- Rebuilt Atomic Viral Matrix into a richer microscopic bio-tech ecosystem.
+- Added five atom families (classic, dense, split, multi-core, ion).
+- Added five virus families (spike, capsule, geometric, orbital, cluster).
+- Added layered micro-particles using dots, * symbols, and + symbols with connection lines.
+- Added clearer low / mid / high audio mapping.
+- Added atom-virus interaction, fusion events, mutation rings, swarm blooms, and beat-triggered activity bursts.
+- Added expanded atomic scene controls and Atomic Scene UI presets with randomisation.
+
+
+## V88 – Atomic UI + Hybrid Optimisation
+- Added stronger manual preset button layout for Atomic Viral Scene UI.
+- Added Random Atomic Scene, Random Preset, Trigger Random Event, Trigger Mutation, and Trigger Fusion buttons.
+- Added Dot Size control and Spread Amount control.
+- Adjusted spawn positions and center-repulsion so elements spread out more naturally.
+- Optimised Atomic Viral scene for Hybrid Mix by reducing active state, capping lists, and slightly reducing audio intensity.
+
+
+## V89 – Stability Refactor
+
+- Namespaced repeated helper functions in older Pixi/Three scene files.
+- Reduced risk of global helper collisions from plain script loading.
+- Added runtime trim helpers for Firework, Missile, and Atomic scenes.
+- Improved Hybrid Mix stability by calling scene-specific trim methods.
+- Added lightweight scene-change cleanup hook through `SceneRuntimeTools`.
+- This version focuses on stability rather than adding new visual features.
+
+
+## V90 – UI Organisation Upgrade
+
+- Added collapsible panels across the HUD.
+- Performance, Audio Reactive Hub, and Scene Controls are open by default.
+- Scene Mixer, Scene Transition, Global Visual Controls, Audio Controls, Colour + Gradient, Text Projection and Keyboard Shortcuts start collapsed.
+- Added Live Cockpit readouts for scene, audio state, and performance mode.
+- Improved HUD readability and live-use navigation without removing existing controls.
+
+
+## V91 – Beat Automation
+
+- Added Beat Automation panel.
+- Added beat-count controls for scene changes, event triggers, and active-scene randomisation.
+- Added manual Trigger Auto Event button.
+- Added manual Randomise Active Scene button.
+- Beat automation can trigger Firework, Missile, Atomic Viral and Iris scene behaviours.
+- Automation uses detected beat/bass pulses and keeps a visible beat counter.
+
+
+## V92 – Performance Monitor
+
+- Added Performance Monitor panel.
+- Added RuntimeMonitor module.
+- Added FPS and frame-time tracking.
+- Added active scene, hybrid layer, audio and automation readouts.
+- Added Firework / Missile / Atomic state counters.
+- Added Runtime Cleanup button to trim state-heavy scenes during long-running sessions.
+
+
+## V93 – Code Glitch Terminal Scene
+
+- Added new scene: **Code Glitch Terminal**.
+- Added scene controls for panels, streams, scroll speed, symbol size, glitch amount, link density, window jitter, RGB split, and noise blocks.
+- Added a new Pixi scene renderer using coding windows, scrolling code columns, connector links, and glitch slices.
+- Added beat-automation support for the new scene by boosting glitch intensity and RGB split during automation events.
+
+
+## V94 – Mobius Galaxy Upgrade
+
+- Rebuilt Mobius Galaxy with a stronger 3D ribbon/depth illusion.
+- Added new Mobius controls: Ribbon Width, Twist Amount, Depth Strength, Surface Grid, Signal Particles, Signal Speed, Galaxy Spiral, Dust Amount, Gravity Pulse, Lens Distortion and Mobius Mode.
+- Added moving signal particles travelling along the Mobius ribbon.
+- Added surface grid and ribbon cell shading.
+- Added galaxy depth layers, dust particles, gravity rings and lens distortion.
+- Added Mobius Scene UI with presets and randomisation.
+- Added beat automation support for Mobius gravity/signal boosts.
+
+
+## V95 – Mobius Hotfix
+
+- Hotfixed the V94 Mobius Galaxy upgrade.
+- Lowered default Mobius density, stars, dust and signal particles.
+- Added hard caps for Mobius render counts.
+- Added Mobius fallback renderer.
+- Added `window.MobiusGalaxyScene` exposure.
+- Added Mobius cleanup support to Runtime Monitor and scene-change cleanup.
+
+
+## V96 – Launch Hotfix
+
+- Fixed launch failure caused by missing `HudController.updateLiveCockpit()`.
+- Added safe Live Cockpit cache references.
+- Added safe `initCollapsiblePanels()` implementation.
+- Confirmed launch path with a browser-style boot smoke test.
+
+
+## V97 – Code Glitch Upgrade
+
+- Added Code Glitch Scene UI.
+- Added Code Glitch presets: Clean Terminal, Hacker Rain, System Breach, Data Network, Corrupt Core.
+- Added manual Glitch Burst, System Breach, and Corrupt Core event triggers.
+- Added controls: Main Panel Focus, Typing Cursors, Scanline Strength, Breach Pulse, Binary Rain, Snippet Density, Panel Opacity, Grid Strength, Corruption Spread, Code Mode.
+- Expanded the code snippet library.
+- Added scanline and cursor effects.
+- Added central command/core panel.
+- Added `trimForHybrid()` for Code Glitch.
+- Routed Code Glitch through the hybrid-safe draw path.
+
+
+## V98 – Slash Wave Fabric Upgrade
+
+- Upgraded Slash Wave Fabric to have clearer low / mid / high audio-reactive behaviour.
+- Added multi-layer fabric mesh.
+- Added low-frequency bulge and slash shockwave behaviour.
+- Added mid-frequency weave drift, shear and ripple movement.
+- Added high-frequency shard fragments and spark accents.
+- Added new controls: Fabric Layers, Ripple Strength, Weave Drift, Shard Amount, Slash Trail Length.
+
+
+## V99 – Topography Flow Field Scene
+
+- Replaced Slash Wave Fabric with Topography Flow Field.
+- Added animated contour-line terrain rendering.
+- Added topographic island/ring forms.
+- Low reacts to elevation swell and bass pulse.
+- Mid reacts to terrain drift and ridge movement.
+- High reacts to fine contour detail and tracer highlights.
+- Added new Topography controls: Contour Density, Terrain Layers, Elevation Scale, Contour Spacing, Terrain Drift, Fine Detail, Bass Pulse, and Tracer Amount.
+
+
+## V100 – Mountain Topography Refinement
+
+- Refined Topography Flow Field into a more mountain-like topographic map.
+- Added stronger nested contours around mountain peaks.
+- Added ridgeline / saddle connectors between peaks.
+- Increased mountain-readability while keeping low / mid / high motion behaviour.
+- Renamed scene label to Mountain Topography.
+
+
+## V101 – Topographic Spectrograph
+
+- Modified Mountain Topography into Topographic Spectrograph.
+- Added spectrograph-style contour bands and time markers.
+- Added stronger frequency-zone shaping for low, mid, and high bands.
+- Added a live sweep cursor and contour tracers.
+- Kept the contour / topographic visual language while moving the scene closer to a spectrograph.
+
+
+## V102 – Spectrograph Scene
+
+- Removed the topography emphasis from the former Topographic Spectrograph.
+- Renamed the scene to Spectrograph.
+- Focused the scene on spectral bands, scan/sweep behaviour, and low/mid/high zone activity.
+- Updated controls to reflect spectrograph behaviour rather than topography.
+
+
+## V103 – Spectrograph Effects Upgrade
+
+- Removed topography circles / island-like emphasis from the Spectrograph scene.
+- Added waterfall history for spectral memory.
+- Added vertical energy spikes across the bands.
+- Added peak-hold markers for low, mid, and high zones.
+- Added heatmap-like glow zones and spark particles.
+- Kept the scene focused on pure spectrograph behaviour.
+
+
+## V104 – Spectrograph Line Definition Fix
+
+- Reduced heatmap glow intensity.
+- Reduced glow-point blur and particle glow.
+- Rebalanced rendering so heatmap stays behind the spectral lines.
+- Increased spectral line opacity and stroke clarity.
+- Improved readability of spikes, tracers and peak-hold markers.
+
+
+## V105 – Chladni Plate Resonance Scene
+
+- Added a new Chladni Plate Resonance scene.
+- Added controls for Grain Density, Mode X, Mode Y, Node Width, Vibration Drift, Sand Scatter, Line Definition, and Sparkle Amount.
+- Low / Bass shifts broader modal structure and plate pulse.
+- Mid shifts resonance mode combinations and vibration drift.
+- High adds finer harmonic detail and sparkle accents.
+
+
+## V106 – Cyber Chladni Nexus Scene
+
+- Added a second Chladni-inspired scene: Cyber Chladni Nexus.
+- Added controls for Grid Density, Mode X, Mode Y, Node Width, Circuit Drift, Bass Pulse, Circuit Traces, and Sparkle Amount.
+- Low / Bass drives broader modal shifts, plate pulse, and lower sweep weight.
+- Mid drives drift, sweep movement, and resonance structure changes.
+- High drives harmonic detail, sparkle, and node flicker.

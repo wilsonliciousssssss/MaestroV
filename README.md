@@ -4,7 +4,7 @@
 
 Audio-reactive live visual engine for DJs and live performance. Point it at your mic or sound card and it turns the music into 16 switchable club-visual scenes — zero dependencies, no build step, runs offline straight from a folder.
 
-**Live:** `https://wilsonliciousssssss.github.io/maestro-v/` *(after GitHub Pages is enabled — see Hosting)*
+**Live:** https://wilsonliciousssssss.github.io/MaestroV/
 
 ## Quick start
 
@@ -36,6 +36,24 @@ Every scene maps **low / mid / high** frequency bands to its own motion, plus be
 
 `H` tools · `M` mic · `S` sound card · `B` Beat FX · `G` 4-beat FX · `V` 2-bar colour FX · `R` randomise · `C` reset camera · `F` fullscreen · `1–9` scenes · `0` atomic · `-` hybrid
 
+## Phones and tablets
+
+Maestro V is desktop-first but adapts by device tier:
+
+- **Phone (portrait)** — **Live mode**: a bottom quick bar (**MIC · FX · ◀ ▶ scene · RND · ⛶**), the HUD opens as a **bottom sheet** (tap the grip to expand) so the visuals stay visible while you tweak, only the core panels start open, and the engine starts in **Lite** performance with trimmed density.
+- **Phone (landscape) / tablet** — the full HUD drawer with touch sizing: 44px+ targets, larger sliders and text, 16px inputs (no iOS focus-zoom).
+- **Touch camera** — pinch the stage to zoom, drag two fingers sideways to rotate.
+- Desktop is untouched.
+
+## Install on your phone
+
+Maestro V is an installable web app (PWA) with the ΛΩ app icon:
+
+- **Android (Chrome/Edge):** open the live URL → ⋮ menu → **Add to Home screen** (or **Install app**).
+- **iPhone/iPad (Safari):** open the live URL → Share → **Add to Home Screen**.
+
+It launches fullscreen with the ink ΛΩ icon, and keeps working offline after the first load (service worker cache).
+
 ## Brand channels
 
 Maestro V wears the **Alpha Omega Collective** identity: ink surfaces, sharp corners, Space Mono HUD, Syne wordmark, and the canvas-drawn pixel-glitch **ΛΩ** mark. The square dots in the HUD header switch the live **channel** — Lime (signature) · Cobalt · Orange · Magenta · Teal — recolouring every HUD accent and the favicon. Your pick persists locally.
@@ -43,14 +61,15 @@ Maestro V wears the **Alpha Omega Collective** identity: ink surfaces, sharp cor
 ## Tech notes
 
 - Vanilla JS + two stacked canvas layers (pseudo-3D + 2D). No frameworks, no CDN runtime dependencies, no network calls (brand webfonts load from Google Fonts with full offline fallback to system mono).
-- Structure: `index.html` · `css/style.css` · `js/config.js` · `js/core/` (state, audio, HUD, brand, monitor) · `js/pixi/` + `js/three/` scene modules · `docs/` · `tests/`.
-- Smoke test: `node tests/runtime_smoke_test.js` — boots the whole engine headless, exercises all 16 scenes, text projection and the brand channel system.
+- Structure: **flat by design** — every file at the repo root (`index.html`, `style.css`, `config.js`, core modules, 15 scene modules, docs) so web-UI uploads can never lose the folder tree.
+- PWA: `app.webmanifest` + `sw.js` (network-first, versioned cache) + `icon-*.png` (ink ground, white pixel-glitch ΛΩ, lime dashed frame — AOC primary installable icon rule).
+- Smoke test: `node runtime_smoke_test.js` — boots the whole engine headless, exercises all 16 scenes, text projection and the brand channel system.
 
 ## Hosting on GitHub Pages
 
-1. Create a public repo (e.g. `maestro-v`) and upload the contents of this folder (with `index.html` at the repo root).
+1. Upload ALL files in this folder to the repo root (no folders — the layout is flat on purpose; `index.html` must sit at root).
 2. Settings → Pages → Deploy from branch → `main` / root.
-3. Visit `https://<user>.github.io/maestro-v/`.
+3. Visit `https://<user>.github.io/<repo>/`.
 
 ## Credits
 

@@ -1,179 +1,362 @@
-function cc_scenePalette() { return VisualState.palette(); }
-function cc_perfScale() { return VisualState.perfMode().densityScale; }
-function cc_clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-function cc_norm(value, fallback = 0) { return cc_clamp((value ?? fallback) / 100, 0, 1); }
-function cc_drawGlowPoint(ctx, x, y, radius, color, alpha = 0.8) {
+function mg_scenePalette() { return VisualState.palette(); }
+function mg_perfScale() { return VisualState.perfMode().densityScale; }
+function mg_clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function mg_norm(value, fallback = 0) { return mg_clamp((value ?? fallback) / 100, 0, 1); }
+function mg_count(value, fallback, maxNormal, maxHybrid) { const cap = VisualState.scene === 'hybrid' ? maxHybrid : maxNormal; return Math.max(0, Math.min(cap, Math.floor((value || fallback) * mg_perfScale()))); }
+function mg_drawGlowPoint(ctx, x, y, radius, color, alpha = 0.8) {
   const glow = (VisualState.controls.glow || 0) * VisualState.perfMode().glowScale;
   ctx.save();
-  if (glow > 10) { ctx.shadowBlur = Math.min(22, glow * 0.2 + radius * 0.65); ctx.shadowColor = color; }
+  if (glow > 10) {
+    ctx.shadowBlur = Math.min(28, glow * 0.24 + radius * 0.8);
+    ctx.shadowColor = color;
+  }
   ctx.fillStyle = rgba(color, alpha);
-  ctx.beginPath(); ctx.arc(x, y, Math.max(0.2, radius), 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x, y, Math.max(0.2, radius), 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
-function cc_drawLine(ctx, x1, y1, x2, y2, color, alpha = 0.35, width = 1) {
-  ctx.save(); ctx.strokeStyle = rgba(color, alpha); ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.restore();
+function mg_drawLine(ctx, x1, y1, x2, y2, color, alpha = 0.35, width = 1, dash = null) {
+  ctx.save();
+  ctx.strokeStyle = rgba(color, alpha);
+  ctx.lineWidth = width;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
 }
-function cc_drawBox(ctx, x, y, w, h, color, alpha = 0.18, lw = 1) {
-  ctx.save(); ctx.strokeStyle = rgba(color, alpha); ctx.lineWidth = lw; ctx.strokeRect(x, y, w, h); ctx.restore();
+function mg_drawBox(ctx, x, y, w, h, color, alpha = 0.2, lw = 1) {
+  ctx.save();
+  ctx.strokeStyle = rgba(color, alpha);
+  ctx.lineWidth = lw;
+  ctx.strokeRect(x, y, w, h);
+  ctx.restore();
+}
+function mg_arc(ctx, x, y, r, start, end, color, alpha = 0.18, width = 1, dash = null) {
+  ctx.save();
+  ctx.strokeStyle = rgba(color, alpha);
+  ctx.lineWidth = width;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.arc(x, y, r, start, end);
+  ctx.stroke();
+  ctx.restore();
 }
 
-const ChladniCyberScene = {
-  field(u, v, n, m, harmonic, time, audio, drift) {
-    const bass = audio.bass || 0;
-    const mid = audio.mid || 0;
-    const high = audio.high || 0;
-    const t1 = time * (0.7 + drift * 1.0);
-    const t2 = time * (1.2 + drift * 1.6);
-    const x = (u + 1) * 0.5;
-    const y = (v + 1) * 0.5;
-    const core = Math.sin(n * Math.PI * x + Math.sin(t1 + y * 3.2) * drift * 0.18) * Math.sin(m * Math.PI * y + Math.cos(t1 + x * 2.6) * drift * 0.18)
-               - Math.sin(m * Math.PI * x - Math.cos(t2 + y * 2.2) * drift * 0.16) * Math.sin(n * Math.PI * y + Math.sin(t2 + x * 3.4) * drift * 0.16);
-    const harmonicField = Math.sin((n + 1) * Math.PI * x + t2 * 0.28) * Math.sin((m + 2) * Math.PI * y - t2 * 0.22);
-    const scan = Math.sin((x + y) * Math.PI * (n + m) * 0.35 + t1) * bass * 0.1 + Math.cos((x - y) * Math.PI * (n + 2) * 0.45 + t2) * mid * 0.08;
-    return core + harmonicField * harmonic * (0.35 + high * 0.45) + scan;
+const MobiusGalaxyScene = {
+  signals: [],
+  dust: [],
+  lastKey: '',
+  presets: ['Clean Topology', 'Galaxy Wormhole', 'Data Mobius', 'Neon Ribbon', 'Chaos Twist'],
+
+  reset() {
+    this.signals = [];
+    this.dust = [];
+    this.lastKey = '';
   },
 
-  drawFrame(ctx, px, py, size, p, bass, mid, high, circuit) {
-    const pad = size * 0.06;
-    cc_drawBox(ctx, px, py, size, size, p.a, 0.06 + bass * 0.04, 1.1 + bass * 0.25);
-    cc_drawBox(ctx, px + pad, py + pad, size - pad * 2, size - pad * 2, p.b, 0.035 + mid * 0.03, 0.9);
-    const corners = [
-      [px, py], [px + size, py], [px, py + size], [px + size, py + size]
-    ];
-    corners.forEach((c, i) => {
-      const col = i % 2 === 0 ? p.c : p.b;
-      cc_drawGlowPoint(ctx, c[0], c[1], 2.2 + bass * 2, col, 0.12 + bass * 0.1);
-    });
-    const bar = size * 0.12 * (0.6 + circuit * 0.5);
-    cc_drawLine(ctx, px, py + bar, px + bar, py, p.c, 0.06 + high * 0.05, 1);
-    cc_drawLine(ctx, px + size - bar, py, px + size, py + bar, p.c, 0.06 + high * 0.05, 1);
-    cc_drawLine(ctx, px, py + size - bar, px + bar, py + size, p.c, 0.06 + high * 0.05, 1);
-    cc_drawLine(ctx, px + size - bar, py + size, px + size, py + size - bar, p.c, 0.06 + high * 0.05, 1);
+  trimForHybrid() {
+    if (this.signals.length > 42) this.signals.splice(0, this.signals.length - 42);
+    if (this.dust.length > 50) this.dust.splice(0, this.dust.length - 50);
   },
 
-  draw(ctx, width, height, time, audio) {
-    const p = cc_scenePalette();
-    const bass = audio.bass || 0;
-    const mid = audio.mid || 0;
-    const high = audio.high || 0;
-    const beat = audio.beat || 0;
-
-    const density = Math.max(20, Math.floor((VisualState.controls.cyberChladniDensity || 72) * cc_perfScale()));
-    const baseModeX = Math.max(1, Math.floor(VisualState.controls.cyberChladniModeX || 4));
-    const baseModeY = Math.max(2, Math.floor(VisualState.controls.cyberChladniModeY || 7));
-    const threshold = cc_norm(VisualState.controls.cyberChladniThreshold, 28);
-    const drift = cc_norm(VisualState.controls.cyberChladniDrift, 52);
-    const pulse = cc_norm(VisualState.controls.cyberChladniPulse, 60);
-    const circuit = cc_norm(VisualState.controls.cyberChladniCircuit, 66);
-    const sparkle = cc_norm(VisualState.controls.cyberChladniSparkle, 58);
-
-    const n = baseModeX + Math.round(bass * 3);
-    let m = baseModeY + Math.round(mid * 4);
-    if (m === n) m += 1;
-    const harmonic = 0.2 + high * 0.9;
-
-    const size = Math.min(width, height) * 0.62 * (1 + beat * 0.03 + pulse * bass * 0.04);
-    const px = (width - size) * 0.5;
-    const py = (height - size) * 0.5;
-    const cx = width * 0.5;
-    const cy = height * 0.5;
-    const rotation = Math.sin(time * 0.3) * drift * 0.045 + Math.sin(time * 0.95) * mid * 0.02;
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(rotation);
-    ctx.translate(-cx, -cy);
-
-    ctx.save();
-    ctx.fillStyle = rgba('#05070b', 0.14 + bass * 0.04);
-    ctx.fillRect(px, py, size, size);
-    ctx.restore();
-
-    this.drawFrame(ctx, px, py, size, p, bass, mid, high, circuit);
-
-    // cyber grid hints
-    const gridCount = Math.max(6, Math.floor(8 + circuit * 10));
-    for (let i = 1; i < gridCount; i++) {
-      const t = i / gridCount;
-      const gx = px + t * size;
-      const gy = py + t * size;
-      cc_drawLine(ctx, gx, py, gx, py + size, p.a, 0.008 + high * 0.01, 0.45);
-      cc_drawLine(ctx, px, gy, px + size, gy, p.b, 0.008 + mid * 0.01, 0.45);
-    }
-
-    const samples = Math.max(26, Math.floor(density * 0.78));
-    const tracerStep = Math.max(3, Math.floor(10 - sparkle * 5));
-
-    // nodal circuit traces
-    for (let row = 0; row < samples; row++) {
-      const v = -1 + (row / Math.max(1, samples - 1)) * 2;
-      let prev = null;
-      for (let col = 0; col < samples; col++) {
-        const u = -1 + (col / Math.max(1, samples - 1)) * 2;
-        const val = this.field(u, v, n, m, harmonic, time, audio, drift);
-        const node = Math.max(0, 1 - Math.abs(val) / (0.055 + threshold * 0.28));
-        const x = px + (u + 1) * 0.5 * size;
-        const y = py + (v + 1) * 0.5 * size;
-        if (node > 0.2) {
-          const colr = (row + col) % 3 === 0 ? p.a : (row + col) % 3 === 1 ? p.b : p.c;
-          if (prev) {
-            cc_drawLine(ctx, prev.x, prev.y, x, y, colr, 0.03 + node * 0.18 + high * 0.02, 0.45 + node * 0.9 + bass * 0.22);
-          }
-          if (col % tracerStep === 0) {
-            const box = 1.4 + node * 2.2 + high * 0.6;
-            ctx.save();
-            ctx.strokeStyle = rgba(colr, 0.05 + node * 0.18 + high * 0.06);
-            ctx.lineWidth = 0.8;
-            ctx.strokeRect(x - box * 0.5, y - box * 0.5, box, box);
-            ctx.restore();
-            if (sparkle > 0.08 && high > 0.12) {
-              cc_drawGlowPoint(ctx, x, y, 0.4 + node * 1.1, colr, 0.07 + node * 0.18 + high * 0.07);
-            }
-          }
-          prev = { x, y };
-        } else {
-          prev = null;
-        }
-      }
-    }
-
-    // scan pulses linked to low/mid/high zones
-    const sweeps = [
-      { t: (time * (0.08 + bass * 0.08)) % 1, vertical: true, col: p.c, alpha: 0.04 + bass * 0.07 },
-      { t: (time * (0.12 + mid * 0.1) + 0.33) % 1, vertical: false, col: p.b, alpha: 0.035 + mid * 0.07 },
-      { t: (time * (0.18 + high * 0.12) + 0.67) % 1, vertical: true, col: p.a, alpha: 0.03 + high * 0.08 },
-    ];
-    sweeps.forEach((s) => {
-      if (s.vertical) {
-        const x = px + s.t * size;
-        cc_drawLine(ctx, x, py, x, py + size, s.col, s.alpha, 0.85 + beat * 0.45);
-      } else {
-        const y = py + s.t * size;
-        cc_drawLine(ctx, px, y, px + size, y, s.col, s.alpha, 0.85 + beat * 0.45);
-      }
-    });
-
-    // HUD connectors and resonance nodes
-    const nodeCount = Math.floor((10 + circuit * 18) * (VisualState.scene === 'hybrid' ? 0.55 : 1));
-    for (let i = 0; i < nodeCount; i++) {
-      const t = i / Math.max(1, nodeCount - 1);
-      const u = -0.95 + t * 1.9;
-      const v = Math.sin(time * (0.9 + mid * 0.8) + i * 0.7) * (0.18 + drift * 0.22);
-      const val = this.field(u, v, n, m, harmonic, time, audio, drift);
-      const node = Math.max(0, 1 - Math.abs(val) / (0.07 + threshold * 0.3));
-      const x = px + (u + 1) * 0.5 * size;
-      const y = py + (v + 1) * 0.5 * size;
+  drawFallback(ctx, width, height, time, audio) {
+    const p = mg_scenePalette();
+    const cx = width / 2;
+    const cy = height / 2;
+    const count = 96;
+    let prev = null;
+    for (let i = 0; i <= count; i++) {
+      const u = i / count * Math.PI * 2;
+      const r = Math.min(width, height) * (0.23 + audio.bass * 0.04);
+      const x = cx + Math.cos(u + time * 0.18) * r;
+      const y = cy + Math.sin(u * 2 + time * 0.2) * r * 0.46;
       const col = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
-      if (node > 0.14) {
-        cc_drawGlowPoint(ctx, x, y, 0.7 + node * 1.8 + high * 0.6, col, 0.06 + node * 0.2 + high * 0.08);
-        if (i > 0) {
-          const px2 = px + ((-0.95 + ((i - 1) / Math.max(1, nodeCount - 1)) * 1.9) + 1) * 0.5 * size;
-          const py2 = py + ((Math.sin(time * (0.9 + mid * 0.8) + (i - 1) * 0.7) * (0.18 + drift * 0.22)) + 1) * 0.5 * size;
-          cc_drawLine(ctx, px2, py2, x, y, col, 0.018 + node * 0.1 + mid * 0.03, 0.55);
-        }
+      if (prev) mg_drawLine(ctx, prev.x, prev.y, x, y, col, 0.12 + audio.high * 0.08, 0.8);
+      if (i % 8 === 0) mg_drawGlowPoint(ctx, x, y, 1.3 + audio.high * 1.6, col, 0.42);
+      prev = { x, y };
+    }
+    mg_arc(ctx, cx, cy, Math.min(width, height) * (0.08 + audio.bass * 0.05), 0, Math.PI * 2, p.b, 0.08 + audio.bass * 0.1, 1.2, [4, 8]);
+  },
+
+  ensure(width, height) {
+    const signalCount = mg_count(VisualState.controls.mobiusSignalParticles, 42, 96, 42);
+    const dustCount = mg_count(VisualState.controls.mobiusDustAmount, 50, 120, 50);
+    const key = [width, height, signalCount, dustCount].join(':');
+    if (this.lastKey === key) return;
+    this.lastKey = key;
+    this.signals = Array.from({ length: signalCount }, (_, i) => ({
+      u: Math.random() * Math.PI * 2,
+      lane: (Math.random() - 0.5) * 2,
+      speed: 0.22 + Math.random() * 1.15,
+      size: 0.9 + Math.random() * 2.6,
+      phase: Math.random() * Math.PI * 2,
+      colorSlot: i % 3
+    }));
+    this.dust = Array.from({ length: dustCount }, (_, i) => ({
+      angle: i * 2.399963 + Math.random() * 0.2,
+      radius: Math.sqrt(Math.random()),
+      depth: Math.random(),
+      size: 0.4 + Math.random() * 1.8,
+      phase: Math.random() * Math.PI * 2,
+      spin: 0.05 + Math.random() * 0.2
+    }));
+  },
+
+  point(width, height, time, audio, u, lane = 0) {
+    const cx = width / 2;
+    const cy = height / 2;
+    const minDim = Math.min(width, height);
+    const mode = Math.round(VisualState.controls.mobiusMode || 1);
+    const rot = VisualState.controls.mobiusRotation || 1.1;
+    const ribbonWidth = (VisualState.controls.mobiusRibbonWidth || 38) / 100;
+    const twistCtrl = mg_norm(VisualState.controls.mobiusTwistAmount, 56);
+    const depthCtrl = mg_norm(VisualState.controls.mobiusDepthStrength, 68);
+    const gravity = mg_norm(VisualState.controls.mobiusGravityPulse, 66);
+    const lens = mg_norm(VisualState.controls.mobiusLensDistortion, 52);
+
+    const twistCount = mode === 0 ? 1 : mode === 1 ? 1.35 : mode === 2 ? 1.8 : mode === 3 ? 1.1 : 2.4;
+    const doubleFigure = mode === 4 ? Math.sin(u * 2 + time * 0.55) * 0.18 : 0;
+    const galaxyRing = mode === 1 ? 0.08 : 0;
+    const wormholePull = mode === 1 ? 0.12 + lens * 0.12 : 0;
+    const chaos = mode === 4 ? Math.sin(u * 5 + time * 1.7) * 0.09 : 0;
+
+    const twist = Math.sin(u * twistCount + time * rot * 0.7) * (0.35 + twistCtrl * 0.55);
+    const depth = Math.cos(u + time * rot * 0.18) * depthCtrl;
+    const scale = 1 + depth * 0.22 + audio.bass * gravity * 0.18;
+    const baseR = minDim * (0.24 + galaxyRing + audio.bass * gravity * 0.04);
+    const laneOffset = lane * minDim * (0.025 + ribbonWidth * 0.095) * (0.65 + Math.abs(twist) * 0.65);
+
+    let x = cx + Math.cos(u + time * 0.16 * rot + doubleFigure) * (baseR + laneOffset * Math.cos(u * twistCount));
+    let y = cy + Math.sin(u * (mode === 4 ? 1.7 : 1.0) + time * 0.12 * rot) * (baseR * 0.56 + laneOffset * Math.sin(u + twist)) + Math.sin(u * 2 + time * 0.3) * minDim * 0.035 * twistCtrl;
+
+    const lensDx = x - cx;
+    const lensDy = y - cy;
+    const d = Math.hypot(lensDx, lensDy) || 1;
+    const lensPull = wormholePull * audio.bass * Math.max(0, 1 - d / (minDim * 0.45));
+    x += (lensDx / d) * lensPull * minDim * 0.08;
+    y += (lensDy / d) * lensPull * minDim * 0.05;
+    x += chaos * minDim * 0.12;
+    y += Math.cos(u * 3 + time) * chaos * minDim * 0.08;
+
+    return { x, y, depth, twist, scale, alpha: mg_clamp(0.34 + depth * 0.32, 0.12, 0.94) };
+  },
+
+  drawGalaxy(ctx, width, height, time, audio, p) {
+    const cx = width / 2;
+    const cy = height / 2;
+    const stars = mg_count(VisualState.controls.galaxyPoints, 160, 260, 120);
+    const spiral = mg_norm(VisualState.controls.galaxySpiral, 62);
+    const lens = mg_norm(VisualState.controls.mobiusLensDistortion, 52);
+    const gravity = mg_norm(VisualState.controls.mobiusGravityPulse, 66);
+    const mode = Math.round(VisualState.controls.mobiusMode || 1);
+
+    for (let i = 0; i < stars; i++) {
+      const depth = (i % 7) / 7;
+      const a = i * 2.399963 + time * (0.02 + depth * 0.09 + audio.beat * 0.03);
+      const rr = Math.sqrt(i / Math.max(1, stars)) * Math.min(width, height) * (0.42 + spiral * 0.12) * (1 + audio.bass * gravity * 0.12);
+      const swirl = a + rr * 0.004 * spiral + time * 0.05 * spiral;
+      const flatten = 0.46 + depth * 0.28;
+      let x = cx + Math.cos(swirl) * rr;
+      let y = cy + Math.sin(swirl) * rr * flatten;
+
+      const dx = x - cx;
+      const dy = y - cy;
+      const d = Math.hypot(dx, dy) || 1;
+      const warp = lens * Math.max(0, 1 - d / (Math.min(width, height) * 0.55)) * audio.bass;
+      x += (dx / d) * warp * 18;
+      y += (dy / d) * warp * 12;
+
+      const col = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
+      mg_drawGlowPoint(ctx, x, y, 0.5 + depth * 1.4 + audio.high * 1.1, col, 0.12 + depth * 0.13 + audio.high * 0.12);
+      if (mode === 2 && i % 17 === 0) {
+        mg_drawLine(ctx, cx, cy, x, y, col, 0.018 + audio.mid * 0.025, 0.55);
       }
     }
 
+    const coreR = Math.min(width, height) * (0.035 + audio.bass * gravity * 0.04);
+    mg_arc(ctx, cx, cy, coreR * 3.8, 0, Math.PI * 2, p.b, 0.06 + audio.bass * 0.12, 1.1 + audio.bass * 1.6, [4, 8]);
+    mg_arc(ctx, cx, cy, coreR * 1.6, 0, Math.PI * 2, p.c, 0.08 + audio.high * 0.08, 0.8, [2, 6]);
+  },
+
+  drawRibbon(ctx, width, height, time, audio, p) {
+    const count = Math.max(48, mg_count(VisualState.controls.mobiusDensity, 128, 180, 96));
+    const surfaceGrid = mg_norm(VisualState.controls.mobiusSurfaceGrid, 58);
+    const mode = Math.round(VisualState.controls.mobiusMode || 1);
+    const lanes = [-1, -0.5, 0, 0.5, 1];
+    const edgeA = [];
+    const edgeB = [];
+    const center = [];
+
+    for (let i = 0; i <= count; i++) {
+      const u = i / count * Math.PI * 2;
+      edgeA.push(this.point(width, height, time, audio, u, -1));
+      edgeB.push(this.point(width, height, time, audio, u, 1));
+      center.push(this.point(width, height, time, audio, u, 0));
+    }
+
+    // shaded ribbon cells
+    for (let i = 1; i < edgeA.length; i++) {
+      const a1 = edgeA[i - 1], a2 = edgeA[i], b2 = edgeB[i], b1 = edgeB[i - 1];
+      const avgDepth = (a1.depth + a2.depth + b1.depth + b2.depth) / 4;
+      const col = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
+      ctx.save();
+      ctx.fillStyle = rgba(col, mg_clamp(0.025 + avgDepth * 0.04 + audio.bass * 0.025, 0.008, 0.11));
+      ctx.beginPath();
+      ctx.moveTo(a1.x, a1.y);
+      ctx.lineTo(a2.x, a2.y);
+      ctx.lineTo(b2.x, b2.y);
+      ctx.lineTo(b1.x, b1.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // edge and center lines
+    for (let i = 1; i < center.length; i++) {
+      const col = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
+      const alpha = 0.12 + audio.high * 0.08 + center[i].alpha * 0.12;
+      mg_drawLine(ctx, edgeA[i - 1].x, edgeA[i - 1].y, edgeA[i].x, edgeA[i].y, col, alpha, 0.8 + Math.max(0, edgeA[i].depth) * 0.9);
+      mg_drawLine(ctx, edgeB[i - 1].x, edgeB[i - 1].y, edgeB[i].x, edgeB[i].y, col, alpha, 0.8 + Math.max(0, edgeB[i].depth) * 0.9);
+      mg_drawLine(ctx, center[i - 1].x, center[i - 1].y, center[i].x, center[i].y, col, 0.08 + audio.mid * 0.08, 0.6);
+    }
+
+    if (surfaceGrid > 0.04) {
+      const crossStep = Math.max(4, Math.floor(18 - surfaceGrid * 12));
+      for (let i = 0; i < center.length; i += crossStep) {
+        const col = i % 2 ? p.a : p.b;
+        mg_drawLine(ctx, edgeA[i].x, edgeA[i].y, edgeB[i].x, edgeB[i].y, col, 0.045 + surfaceGrid * 0.12 + audio.mid * 0.04, 0.65, [2, 5]);
+      }
+
+      if (VisualState.scene !== 'hybrid') lanes.forEach((lane, laneIndex) => {
+        if (lane === -1 || lane === 1 || lane === 0) return;
+        let prev = null;
+        for (let i = 0; i <= count; i++) {
+          const u = i / count * Math.PI * 2;
+          const pt = this.point(width, height, time, audio, u, lane);
+          if (prev) mg_drawLine(ctx, prev.x, prev.y, pt.x, pt.y, laneIndex % 2 ? p.c : p.a, 0.035 + surfaceGrid * 0.08, 0.5);
+          prev = pt;
+        }
+      });
+    }
+
+    // high-frequency edge shimmer
+    if (audio.high > 0.05 || mode === 3 || mode === 4) {
+      for (let i = 0; i < center.length; i += 7) {
+        const pt = center[i];
+        const col = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
+        mg_drawGlowPoint(ctx, pt.x, pt.y, 0.9 + audio.high * 2.2 + Math.max(0, pt.depth) * 0.8, col, 0.22 + audio.high * 0.36);
+        if (mode === 3 && i % 21 === 0) {
+          mg_drawLine(ctx, pt.x - 10, pt.y, pt.x + 10, pt.y, col, 0.1 + audio.high * 0.12, 0.75);
+        }
+      }
+    }
+  },
+
+  drawSignals(ctx, width, height, time, audio, p) {
+    const signalSpeed = mg_norm(VisualState.controls.mobiusSignalSpeed, 54);
+    const mode = Math.round(VisualState.controls.mobiusMode || 1);
+    this.signals.forEach((signal, i) => {
+      signal.u = (signal.u + 0.006 * signal.speed * (0.35 + signalSpeed * 1.8 + audio.mid * 1.4)) % (Math.PI * 2);
+      const pt = this.point(width, height, time, audio, signal.u + signal.phase * 0.04, signal.lane);
+      const col = signal.colorSlot === 0 ? p.a : signal.colorSlot === 1 ? p.b : p.c;
+      const trail = this.point(width, height, time, audio, signal.u - 0.035 * (1 + signal.speed), signal.lane);
+      mg_drawLine(ctx, trail.x, trail.y, pt.x, pt.y, col, 0.12 + audio.high * 0.18, 0.8 + audio.high * 1.2);
+      mg_drawGlowPoint(ctx, pt.x, pt.y, signal.size * (1 + audio.bass * 0.4 + audio.high * 0.7), col, 0.42 + audio.high * 0.35);
+      if ((mode === 2 || mode === 4) && i % 5 === 0) {
+        mg_drawBox(ctx, pt.x - 4, pt.y - 4, 8, 8, col, 0.1 + audio.mid * 0.08, 0.8);
+      }
+    });
+  },
+
+  drawDust(ctx, width, height, time, audio, p) {
+    const cx = width / 2;
+    const cy = height / 2;
+    const minDim = Math.min(width, height);
+    this.dust.forEach((d, i) => {
+      const angle = d.angle + time * d.spin * (0.4 + audio.mid * 0.5);
+      const radius = d.radius * minDim * (0.42 + d.depth * 0.18) * (1 + audio.bass * 0.05);
+      const x = cx + Math.cos(angle) * radius;
+      const y = cy + Math.sin(angle) * radius * (0.45 + d.depth * 0.35);
+      const col = i % 3 === 0 ? p.a : i % 3 === 1 ? p.b : p.c;
+      mg_drawGlowPoint(ctx, x, y, d.size * (0.65 + d.depth + audio.high * 0.45), col, 0.04 + d.depth * 0.09 + audio.high * 0.045);
+    });
+  },
+
+  applyPreset(name) {
+    const presets = {
+      topology: {
+        mobiusDensity: 180, galaxyPoints: 120, mobiusRibbonWidth: 28, mobiusTwistAmount: 42,
+        mobiusDepthStrength: 54, mobiusSurfaceGrid: 78, mobiusSignalParticles: 34, mobiusSignalSpeed: 34,
+        galaxySpiral: 32, mobiusDustAmount: 40, mobiusGravityPulse: 32, mobiusLensDistortion: 22, mobiusMode: 0
+      },
+      wormhole: {
+        mobiusDensity: 210, galaxyPoints: 360, mobiusRibbonWidth: 46, mobiusTwistAmount: 62,
+        mobiusDepthStrength: 88, mobiusSurfaceGrid: 44, mobiusSignalParticles: 64, mobiusSignalSpeed: 46,
+        galaxySpiral: 86, mobiusDustAmount: 140, mobiusGravityPulse: 88, mobiusLensDistortion: 82, mobiusMode: 1
+      },
+      data: {
+        mobiusDensity: 190, galaxyPoints: 220, mobiusRibbonWidth: 32, mobiusTwistAmount: 58,
+        mobiusDepthStrength: 66, mobiusSurfaceGrid: 68, mobiusSignalParticles: 118, mobiusSignalSpeed: 74,
+        galaxySpiral: 52, mobiusDustAmount: 70, mobiusGravityPulse: 52, mobiusLensDistortion: 40, mobiusMode: 2
+      },
+      neon: {
+        mobiusDensity: 230, galaxyPoints: 280, mobiusRibbonWidth: 52, mobiusTwistAmount: 64,
+        mobiusDepthStrength: 72, mobiusSurfaceGrid: 54, mobiusSignalParticles: 92, mobiusSignalSpeed: 64,
+        galaxySpiral: 60, mobiusDustAmount: 110, mobiusGravityPulse: 66, mobiusLensDistortion: 54, mobiusMode: 3
+      },
+      chaos: {
+        mobiusDensity: 260, galaxyPoints: 420, mobiusRibbonWidth: 62, mobiusTwistAmount: 92,
+        mobiusDepthStrength: 86, mobiusSurfaceGrid: 72, mobiusSignalParticles: 140, mobiusSignalSpeed: 88,
+        galaxySpiral: 80, mobiusDustAmount: 180, mobiusGravityPulse: 82, mobiusLensDistortion: 76, mobiusMode: 4
+      }
+    };
+    const selected = presets[name] || presets.wormhole;
+    Object.entries(selected).forEach(([id, value]) => VisualState.setControl(id, value));
+    this.reset();
+  },
+
+  drawDetailed(ctx, width, height, time, audio) {
+    this.ensure(width, height);
+    const p = mg_scenePalette();
+    const cx = width / 2;
+    const cy = height / 2;
+    const gravity = mg_norm(VisualState.controls.mobiusGravityPulse, 66);
+    const lens = mg_norm(VisualState.controls.mobiusLensDistortion, 52);
+    const mode = Math.round(VisualState.controls.mobiusMode || 1);
+
+    ctx.save();
+    this.drawGalaxy(ctx, width, height, time, audio, p);
+    this.drawDust(ctx, width, height, time, audio, p);
+
+    // gravity lens rings
+    const core = Math.min(width, height) * (0.08 + audio.bass * gravity * 0.08);
+    mg_arc(ctx, cx, cy, core * 2.2, 0, Math.PI * 2, p.a, 0.04 + audio.bass * 0.1, 1 + audio.bass * 1.8, [6, 12]);
+    mg_arc(ctx, cx, cy, core * (3.4 + lens * 1.2), time * 0.3, Math.PI * 1.5 + time * 0.3, p.c, 0.04 + audio.high * 0.08, 0.9, [3, 8]);
+
+    this.drawRibbon(ctx, width, height, time, audio, p);
+    this.drawSignals(ctx, width, height, time, audio, p);
+
+    // HUD brackets / identity frame
+    const frameW = Math.min(width, height) * (0.42 + mode * 0.015);
+    const frameH = frameW * 0.62;
+    mg_drawBox(ctx, cx - frameW / 2, cy - frameH / 2, frameW, frameH, p.a, 0.035 + audio.beat * 0.05, 1);
+    mg_drawLine(ctx, cx - frameW / 2, cy, cx - frameW / 2 - 24, cy, p.b, 0.08 + audio.mid * 0.08, 0.8);
+    mg_drawLine(ctx, cx + frameW / 2, cy, cx + frameW / 2 + 24, cy, p.b, 0.08 + audio.mid * 0.08, 0.8);
     ctx.restore();
   }
+,
+
+  draw(ctx, width, height, time, audio) {
+    try {
+      this.drawDetailed(ctx, width, height, time, audio);
+    } catch (error) {
+      console.warn('[Maestro V95] Mobius detailed draw failed, using fallback.', error);
+      this.drawFallback(ctx, width, height, time, audio || {});
+    }
+  }
 };
+
+window.MobiusGalaxyScene = MobiusGalaxyScene;
