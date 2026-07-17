@@ -1,5 +1,5 @@
 {
-  "version": "V110",
+  "version": "V111",
   "name": "Maestro V",
   "mode": "offline-hybrid",
   "features": [
@@ -101,7 +101,8 @@
     "responsive-touch-layer",
     "phone-live-mode-quick-bar",
     "bottom-sheet-hud",
-    "pinch-zoom-rotate-gestures"
+    "pinch-zoom-rotate-gestures",
+    "public-readme"
   ],
   "audioSources": [
     "microphone",

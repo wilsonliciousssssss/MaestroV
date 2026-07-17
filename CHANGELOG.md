@@ -2,6 +2,11 @@
 
 Newest first. Public product name: **Maestro V** (Alpha Omega Collective). Internal build numbers continue the original engine series.
 
+## V111 — Public README (2026-07-17)
+
+- README rewritten for a public audience: enjoy-visuals-with-your-music framing, 30-second start, privacy note (audio analysed locally, nothing uploaded), phone install, About Me (DJ7 · Wilsonlicioussss), Instagram + blog links, BeatGenome cross-link, developer footer.
+- Docs-only release — engine, scenes, brand and mobile layer identical to V110. Version numbers aligned to V111.
+
 ## V110 — Responsive: phones + tablets (2026-07-17)
 
 - **New `mobile.js` touch layer** (desktop untouched — activates only on touch devices):

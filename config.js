@@ -1,5 +1,5 @@
 const DJ_CONFIG = {
-  version: 'V110',
+  version: 'V111',
   product: 'Maestro V',
   brand: 'Alpha Omega Collective',
   scenes: [
