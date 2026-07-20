@@ -19,7 +19,9 @@ const ThreeLayer = {
     const height = window.innerHeight;
 
     // Lower canvas owns the black stage background.
-    this.ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    // V112: fade follows the Trails slider (was fixed 0.16, which kept DNA/Mobius permanently dim).
+    const trailFade = Math.min(0.85, Math.max(0.08, (VisualState.controls.trails || 22) / 100));
+    this.ctx.fillStyle = 'rgba(0,0,0,' + trailFade + ')';
     this.ctx.fillRect(0, 0, width, height);
 
     const pulseAudio = this.enhanceAudioWithPulse(audio);

@@ -18,9 +18,9 @@ Your audio never leaves your device — Maestro V only *listens* locally to driv
 
 **Want it as an app?** Open the link on your phone → **Add to Home Screen** (Android: ⋮ menu · iPhone: Share button). You'll get the ΛΩ icon, it launches fullscreen, and it keeps working offline.
 
-## What you'll see — 16 scenes
+## What you'll see — 15 scenes
 
-Matrix Coding · Code Glitch Terminal · Data Constellation · DNA Oscilloscope · Orbit Geometry · Mobius Galaxy · Obsidian Graph · Pixel Missile Barrage · Laser Perspective · Chladni Plate Resonance · Cyber Chladni Nexus · Spectrograph · Atomic Viral Matrix · Iris Kaleidoscope · Firework Multi-Burst Grid · **Hybrid Mix** (layers several at once)
+Matrix Coding · Code Glitch Terminal · Data Constellation · DNA Oscilloscope · Orbit Geometry · Mobius Galaxy · Obsidian Graph · Pixel Missile Barrage · Laser Perspective · Chladni Plate Resonance · Spectrograph · Atomic Viral Matrix · Iris Kaleidoscope · Firework Multi-Burst Grid · **Hybrid Mix** (layers several at once)
 
 Every scene reacts to your music in its own way — bass drives the big movements, mids steer the motion, highs bring sparkle and detail, and beats trigger events like bursts, missiles and mutations.
 

@@ -129,6 +129,7 @@ const VisualState = {
 
   maybeAdvanceScene(now = performance.now()) {
     if (!this.transitionEnabled) return false;
+    if (this.scene === 'hybrid') return false; /* hybrid is a manual destination — auto transitions never pull out of it */
     if (now - this.lastSceneSwitchAt < this.transitionSeconds * 1000) return false;
     this.nextScene();
     return true;
@@ -242,7 +243,7 @@ const VisualState = {
     const beat = this.automationBeatCount;
     let action = null;
 
-    if (this.automationSceneEvery > 0 && beat % this.automationSceneEvery === 0) {
+    if (this.automationSceneEvery > 0 && this.scene !== 'hybrid' && beat % this.automationSceneEvery === 0) {
       this.nextScene(this.transitionType === 'sequence' ? 'sequence' : 'random');
       action = `Scene: ${this.sceneLabel()}`;
     }
@@ -396,22 +397,30 @@ function hslToRgb(h, s, l) {
   };
 }
 
+const _crgbCache = { sig: '', map: new Map() };
 function controlledRgb(hex) {
-  const base = hexToRgb(hex);
-  const hsl = rgbToHsl(base.r, base.g, base.b);
   const controls = VisualState && VisualState.controls ? VisualState.controls : {};
   const time = performance && performance.now ? performance.now() * 0.001 : 0;
-  const cycle = Math.sin(time * (0.2 + (controls.colorCycle || 0) / 70)) * ((controls.colorCycle || 0) * 0.28);
+  const cycleRaw = Math.sin(time * (0.2 + (controls.colorCycle || 0) / 70)) * ((controls.colorCycle || 0) * 0.28);
+  const cycle = Math.round(cycleRaw * 2) / 2; /* 0.5° hue buckets — visually identical, cacheable */
+  const sig = (controls.hueShift || 0) + '|' + (controls.saturation || 100) + '|' + (controls.brightness || 100) + '|' + (controls.contrast || 100) + '|' + cycle;
+  if (sig !== _crgbCache.sig) { _crgbCache.sig = sig; _crgbCache.map.clear(); }
+  const cached = _crgbCache.map.get(hex);
+  if (cached) return cached;
+  const base = hexToRgb(hex);
+  const hsl = rgbToHsl(base.r, base.g, base.b);
   const hue = hsl.h + (controls.hueShift || 0) + cycle;
   const sat = clamp(hsl.s * ((controls.saturation || 100) / 100), 0, 1);
   const light = clamp(hsl.l * ((controls.brightness || 100) / 100), 0, 1);
   const rgb = hslToRgb(hue, sat, light);
   const contrast = clamp((controls.contrast || 100) / 100, 0.4, 1.8);
-  return {
+  const out = {
     r: Math.round(clamp((rgb.r - 128) * contrast + 128, 0, 255)),
     g: Math.round(clamp((rgb.g - 128) * contrast + 128, 0, 255)),
     b: Math.round(clamp((rgb.b - 128) * contrast + 128, 0, 255))
   };
+  _crgbCache.map.set(hex, out);
+  return out;
 }
 
 function rgba(hex, alpha = 1) {
@@ -420,4 +429,25 @@ function rgba(hex, alpha = 1) {
 }
 function clearCanvas(ctx, canvas, alpha = 1) { ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore(); }
 function resizeCanvasToDisplaySize(canvas, ctx) { const dpr = Math.min(window.devicePixelRatio || 1, window.MAESTRO_DPR_CAP || 2); const width = Math.floor(window.innerWidth * dpr); const height = Math.floor(window.innerHeight * dpr); if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; } ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+/* V112 — shared beat clock: rising-edge beat detection + bar phase, so scenes
+   can land events ON the kick instead of on arbitrary timers. */
+const BeatBus = {
+  active: false, count: 0, downbeat: false, _prev: 0,
+  update(audio) {
+    const b = (audio && audio.beat) || 0;
+    this.active = b > 0.5 && this._prev <= 0.5;
+    if (this.active) { this.count += 1; this.downbeat = this.count % 4 === 1; }
+    else this.downbeat = false;
+    this._prev = b;
+  }
+};
+if (typeof window !== 'undefined') window.BeatBus = BeatBus;
+
+/* V112 — additive neon pass: run fn with 'lighter' compositing for true flashes. */
+function additiveDraw(ctx, fn) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  try { fn(); } finally { ctx.restore(); }
+}
+
 VisualState.init();

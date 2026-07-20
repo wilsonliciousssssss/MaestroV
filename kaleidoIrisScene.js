@@ -76,12 +76,18 @@ const KaleidoIrisScene = {
     const breathe = 1 + Math.sin(time * (0.75 + breathing * 1.6) * speed) * breathing * (0.03 + petalMotion * 0.03) + audio.beat * 0.025;
     const morphClock = time * speed * (0.45 + morphSpeed * 2.2);
     const morphWave = Math.sin(morphClock * 0.7) * petalMotion;
-    const pupilR = minDim * (0.046 + aperture * 0.096) * (1 + Math.sin(morphClock * (0.6 + pupilPulse)) * pupilPulse * 0.065 + Math.sin(morphClock * 0.8) * petalMotion * 0.025) * beatPulse;
+    const pupilRBase = minDim * (0.046 + aperture * 0.096) * (1 + Math.sin(morphClock * (0.6 + pupilPulse)) * pupilPulse * 0.065 + Math.sin(morphClock * 0.8) * petalMotion * 0.025) * beatPulse;
+    /* V112 — beat-quantised aperture snaps + downbeat light burst */
+    const bus = typeof BeatBus !== 'undefined' ? BeatBus : null;
+    if (bus && bus.active) { this.apTarget = this.apTarget ? 0 : 1; if (bus.downbeat) this.burst = 1; }
+    this.ap = (this.ap || 0) + ((this.apTarget || 0) - (this.ap || 0)) * 0.22;
+    this.burst = (this.burst || 0) * 0.9;
+    const pupilR = pupilRBase * (1 + this.ap * 0.42);
     const irisR = minDim * (0.24 + petalLength * 0.18) * breathe * (1 + morphWave * 0.03);
     const outerR = irisR * (1.15 + portalDepth * 0.23 + petalMotion * 0.04);
     const slice = Math.PI * 2 / symmetry;
     const layers = Math.max(6, Math.floor(8 + density * 4 + audio.mid * 3));
-    const alphaBase = 0.35 + irisOpacity * 0.85;
+    const alphaBase = 0.55 + irisOpacity * 0.95; /* V112: lifted — was washed out at stage distance */
     const glowBase = 0.15 + glow * 0.85;
 
     ctx.save();
@@ -97,6 +103,18 @@ const KaleidoIrisScene = {
     ctx.beginPath();
     ctx.arc(0, 0, outerR * 1.7, 0, Math.PI * 2);
     ctx.fill();
+
+    if ((this.burst || 0) > 0.05 && typeof additiveDraw === 'function') {
+      additiveDraw(ctx, () => {
+        const br = pupilR * (1.2 + (1 - this.burst) * 5.2);
+        const flare = ctx.createRadialGradient(0, 0, 0, 0, 0, br);
+        flare.addColorStop(0, rgba(p.a, 0.55 * this.burst));
+        flare.addColorStop(0.5, rgba(p.b, 0.22 * this.burst));
+        flare.addColorStop(1, rgba(p.b, 0));
+        ctx.fillStyle = flare;
+        ctx.beginPath(); ctx.arc(0, 0, br, 0, Math.PI * 2); ctx.fill();
+      });
+    }
 
     // layered iris structure with stronger shape motion and counter rotation.
     const layerRotA = time * rotation * (0.08 + innerRotation * 0.11) * speed;

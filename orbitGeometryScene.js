@@ -23,12 +23,12 @@ const OrbitGeometryScene = {
     ctx.save(); ctx.translate(cx,cy); ctx.rotate((time*(VisualState.controls.orbitSpeed||1))*0.16);
     for(let r=0;r<rings;r++){
       const rad=(52+r*31)*scale*(1+audio.bass*0.18); const ecc=0.38+0.035*r+audio.mid*0.08;
-      ctx.strokeStyle=rgba(r%2?p.b:p.a,0.16+audio.mid*0.2); ctx.lineWidth=(VisualState.controls.lineWeight||1)*(1+r/rings*.3);
+      ctx.strokeStyle=rgba(r%2?p.b:p.a,0.13+audio.mid*0.16); ctx.lineWidth=Math.max(0.35,(VisualState.controls.lineWeight||1)*0.5*(1+r/rings*.2));
       ctx.beginPath(); ctx.ellipse(0,0,rad,rad*ecc,time*0.18+r*.3,0,Math.PI*2); ctx.stroke();
       // polygon frame
       const sides=5+(r%5); ctx.beginPath();
-      for(let i=0;i<=sides;i++){const a=i/sides*Math.PI*2+time*.22+r; const x=Math.cos(a)*rad; const y=Math.sin(a)*rad*ecc; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);} ctx.strokeStyle=rgba(p.c,0.06+audio.high*.08); ctx.stroke();
-      for(let i=0;i<10;i++){ const ang=time*(0.45+r*.055)+i*Math.PI*2/10+r; const x=Math.cos(ang)*rad, y=Math.sin(ang)*rad*ecc; og_drawGlowPoint(ctx,x,y,(VisualState.controls.pointSize||2)*(1+audio.beat*.6),i%2?p.c:p.a,0.72); if(i%3===0) og_drawLine(ctx,0,0,x,y,p.b,0.04+audio.bass*.06,0.6); }
+      for(let i=0;i<=sides;i++){const a=i/sides*Math.PI*2+time*.22+r; const x=Math.cos(a)*rad; const y=Math.sin(a)*rad*ecc; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);} ctx.lineWidth=Math.max(0.3,(VisualState.controls.lineWeight||1)*0.4); ctx.strokeStyle=rgba(p.c,0.05+audio.high*.07); ctx.stroke();
+      for(let i=0;i<10;i++){ const ang=time*(0.45+r*.055)+i*Math.PI*2/10+r; const x=Math.cos(ang)*rad, y=Math.sin(ang)*rad*ecc; og_drawGlowPoint(ctx,x,y,(VisualState.controls.pointSize||2)*0.72*(1+audio.beat*.5),i%2?p.c:p.a,0.6); if(i%3===0) og_drawLine(ctx,0,0,x,y,p.b,0.03+audio.bass*.05,0.4); }
     }
     ctx.restore();
   }

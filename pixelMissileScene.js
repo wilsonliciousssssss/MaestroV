@@ -130,7 +130,16 @@ const PixelMissileScene = {
       const flick = 1 + Math.sin(time * (10 + engineFlicker * 12) + m.seed) * (0.2 + engineFlicker * 0.35); missileDrawGlowPoint(ctx, x, y + ph * 0.85, ((m.small ? 1.6 : m.mega ? 4.2 : m.heavy ? 3.2 : 2.4) + audio.high * 3.2) * flick, p.b, 0.5 + audio.high * 0.25);
       if (m.cluster) missileDrawBox(ctx, x - pw, y - ph * 0.7, pw * 2, ph * 1.4, p.a, 0.12, 1);
       if (warning > 0.01) missileDrawGlowPoint(ctx, m.tx, m.ty, 2 + warning * 4, p.a, 0.08 + warning * 0.18);
-      if (m.t > 0.94 && !m.exploded) { m.exploded = true; this.spawnBurst(x, y, m, audio, time); }
+      if (m.t > 0.94 && !m.exploded) {
+        /* V112 — hold at the target and detonate ON the beat (mega waits for the downbeat). */
+        m.holdFrames = (m.holdFrames || 0) + 1;
+        const bus = typeof BeatBus !== 'undefined' ? BeatBus : null;
+        const fire = m.mega
+          ? ((bus && bus.active && bus.downbeat) || m.holdFrames > 90)
+          : ((bus && bus.active) || m.holdFrames > 45);
+        if (fire) { m.exploded = true; this.spawnBurst(x, y, m, audio, time); }
+        else if (m.t > 0.985) m.t = 0.985;
+      }
     });
     this.updateAndDrawBursts(ctx, time, audio, p);
     this.updateAndDrawDebris(ctx, audio, p);

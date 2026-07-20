@@ -44,7 +44,6 @@ const PixiLayer = {
         if (VisualState.sceneActive('missile')) this.safeDraw('missile', () => this.drawHybridSafeScene('missile', PixelMissileScene, width, height, time, pulseAudio));
         if (VisualState.sceneActive('laser')) this.safeDraw('laser', () => LaserPerspectiveScene.draw(this.ctx, width, height, time, pulseAudio));
         if (VisualState.sceneActive('chladni')) this.safeDraw('chladni', () => ChladniPlateScene.draw(this.ctx, width, height, time, pulseAudio));
-        if (VisualState.sceneActive('chladnicyber')) this.safeDraw('chladnicyber', () => ChladniCyberScene.draw(this.ctx, width, height, time, pulseAudio));
         if (VisualState.sceneActive('slash')) this.safeDraw('slash', () => SlashFabricScene.draw(this.ctx, width, height, time, pulseAudio));
         if (VisualState.sceneActive('atomic')) this.safeDraw('atomic', () => this.drawHybridSafeScene('atomic', AtomicViralScene, width, height, time, pulseAudio));
         if (VisualState.sceneActive('iris')) this.safeDraw('iris', () => KaleidoIrisScene.draw(this.ctx, width, height, time, pulseAudio));

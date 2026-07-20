@@ -79,7 +79,19 @@ const SlashFabricScene = {
     const micro = Math.sin(nx * (38 + detail * 30) + drift * 3.0 + ny * 20) * (0.02 + detail * 0.09 + high * 0.07);
     const impulse = beat * 0.11 * Math.sin(nx * 14 + time * 6.5) * sf_gauss(ny, 0.56, 0.28);
 
-    return (lowEnv * lowWave + midEnv * midWave + highEnv * hiWave + micro + impulse) * (0.28 + gain * 0.98);
+    const synth = (lowEnv * lowWave + midEnv * midWave + highEnv * hiWave + micro + impulse) * (0.28 + gain * 0.98);
+    /* V112 — real spectrograph: when the analyser is live, rows read actual FFT bins
+       (low frequencies at the bottom); the synth field remains as texture + fallback. */
+    if (this.fft && this.fft.length) {
+      const bin = this.fft[Math.max(0, Math.min(this.fft.length - 1, Math.round((1 - ny) * (this.fft.length - 1))))];
+      const ripple = Math.sin(nx * (10 + detail * 24) + drift * 1.6) * 0.5 + 0.5;
+      return bin * (0.6 + ripple * 0.55) * (0.55 + gain * 1.1) + synth * 0.3;
+    }
+    return synth;
+  },
+
+  refreshFft() {
+    this.fft = (typeof AudioEngine !== 'undefined' && typeof AudioEngine.spectrum === 'function') ? AudioEngine.spectrum(64) : null;
   },
 
   updateWaterfall(time, audio, rows, gain, scroll, detail, bassWeight) {
@@ -149,6 +161,7 @@ const SlashFabricScene = {
     const baseSpacing = spacing * 0.78;
     const wfCols = VisualState.scene === 'hybrid' ? 40 : 72;
     this.ensureState(wfCols);
+    this.refreshFft();
     this.updateWaterfall(time, audio, bands, gain, scroll, detail, bassWeight);
     if (this.waterfall.length > wfCols) this.waterfall = this.waterfall.slice(this.waterfall.length - wfCols);
     this.emitParticles(time, audio, left, top, plotW, plotH);
@@ -177,7 +190,7 @@ const SlashFabricScene = {
         const hCell = plotH / Math.max(1, col.length);
         const intensity = band.intensity;
         const color = band.low > band.mid && band.low > band.high ? p.c : band.mid > band.high ? p.b : p.a;
-        const alpha = (0.006 + intensity * 0.045) * (c / Math.max(1, this.waterfall.length));
+        const alpha = (0.02 + intensity * 0.12) * (c / Math.max(1, this.waterfall.length)); /* V112: waterfall actually visible */
         ctx.save();
         ctx.fillStyle = rgba(color, alpha);
         ctx.fillRect(x, y - hCell * 0.42, colW + 0.5, hCell * 0.84);

@@ -1017,7 +1017,17 @@ body.phone-ui .quick-bar button::before,
 body.phone-ui .quick-bar button::after { display: none; }
 body.phone-ui .quick-bar button[hidden] { display: none; }
 body.phone-ui.hud-open .quick-bar { display: none; }
+body.touch-ui #stage { touch-action: none; } /* stop tablet/phone pinch hijacking browser zoom */
 body.phone-ui #stage { touch-action: none; }
+/* when the bottom sheet is open, lift the HUD tab to the top-right as a clear close control */
+body.phone-ui.hud-open .hud-tab { top: calc(10px + env(safe-area-inset-top)); bottom: auto; }
 body.phone-ui #brandMark { width: 24px; height: 24px; }
 body.phone-ui .hud-header h1 { font-size: 17px; }
 body.phone-ui .brand-right { flex-direction: row; align-items: center; gap: 10px; }
+
+/* V112 — native dropdown lists were washed out (light-on-white): theme the options */
+select option {
+  background: var(--ao-ink-2);
+  color: var(--ao-white);
+}
+select option:checked { background: var(--ao-ch); color: var(--ao-on-ch); }

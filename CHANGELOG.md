@@ -2,6 +2,59 @@
 
 Newest first. Public product name: **Maestro V** (Alpha Omega Collective). Internal build numbers continue the original engine series.
 
+## V120 — Chladni Plate: band-readout numbers around the box (2026-07-20)
+
+- Added a **live HUD readout ringing the plate**: numeric ticks along each edge that pulse in value + brightness with the audio — **bottom = LOW/bass, top = HIGH, left & right = MID** — plus explicit `LO / MD / HI` percent labels above the box. Channel-coloured, mono, drawn inside the plate frame. Cosmetic overlay only.
+
+## V119 — Chladni Plate: denser lines + stronger ripple (2026-07-20)
+
+- **More lines**: marching-squares now traces **five contour levels** (the bright F=0 nodal lines plus flanking ± iso-lines) for a rich topographic web instead of a single line set; higher default modes (4:7) and Line Detail (96, cap 160) add further detail.
+- **Stronger ripple**: the mid-driven travelling wave is now **two octaves** with a larger amplitude, and the Mid Ripple default is up (58). Bass phase-travel/flex and high shimmer unchanged.
+
+## V118 — Chladni Plate: vibrating nodal lines (2026-07-20)
+
+- **Reworked the Plate to match the neon-line theme and be continuously audio-reactive** (replacing V117 sand grains, which read off-theme and only really moved on beats). Marching-squares now traces the **F=0 nodal contours** of the classic figure each frame and draws them as **glowing channel-coloured lines** (in keeping with Constellation/DNA/Obsidian). The lines **vibrate and travel with the music**: **bass** drives the standing-wave phase (lines travel) + flexes/breathes the whole figure, **mid** sends a travelling ripple along the lines (Mid Ripple slider), **high** adds per-vertex shimmer (High Shimmer slider). Beat still metamorphoses to a new mode (crossfade + flash). Controls relabelled: Line Detail / Line Glow / Plate Life / Mid Ripple / Line Brightness / High Shimmer.
+
+## V117 — Chladni Plate: real sand migration (2026-07-20)
+
+- **Chladni Plate Resonance rebuilt as the physical experiment** (all four proposed upgrades): thousands of **persistent grains** now bounce where the plate vibrates (antinodes) and settle on the quiet **nodal lines**, chasing the figure by gradient-descent on |F| — so when the mode **metamorphoses on the beat you watch the sand herd** across the plate into the new figure. **Continuous phase drift** keeps it alive between beats (Plate Life slider). A faint **energy-field tint** reads the figure under the sand. A **bowed edge-exciter** pulses on bass and its ripple shakes the plate, re-scattering grains. Settled grains **sparkle** on highs. Field sampled from a precomputed grid buffer; grain count scales with Grain Density + perf. Control labels updated (Node Snap / Plate Life / Grain Brightness).
+
+## V116 — Remove Cyber Chladni Nexus (2026-07-20)
+
+- **Removed the Cyber Chladni Nexus scene** at Wilson's request — scene list is now 15 (Chladni Plate Resonance stays). Dropped from config scenes + its control block, index.html script include, pixiLayer draw dispatch, README; `chladniCyberScene.js` deleted; smoke-test guard updated. Zero dangling references. Keyboard scene shortcuts unaffected (Nexus was #11; 1–9 map to the first nine, atomic/hybrid by id).
+
+## V115 — Cyber Chladni animated heatmap (2026-07-20)
+
+- **Cyber Chladni Nexus now animates and persists like a heatmap.** Root cause of "static": the V114 field had no continuous time term, so between beat-triggered mode changes nothing moved. Added continuous **phase drift + a slow travelling term** to the standing wave (scaled by Speed and Circuit Drift) so the plate is alive between beats. Each pixel now feeds a **heat buffer** that rises instantly to the current antinode energy and **cools gradually** — thermal-camera persistence, so the figure blends down into a soft radial background wash as it fades. Circuit Drift doubles as the heat-tail length (snappy → long smear); additive thermal bloom overlaps neighbours for a smooth heatmap. Beat metamorphosis + RGB-split glitch retained.
+
+## V114 — Cyber Chladni pixel/gradient + mobile audit fixes (2026-07-18)
+
+- **Cyber Chladni Nexus restyled to gradient + pixel.** The classic Chladni figure now renders as a chunky **LED pixel grid**: each pixel is a gradient blend of the channel palette by antinode energy (low→p.b, mid→p.a, hot→p.c), nodal lines read as dark gaps, with a CRT scanline dim, additive antinode bloom, and an **RGB-split pixel glitch** on the beat-quantised mode metamorphosis. "Grid Density" now controls pixelation (lower = chunkier); "Node Width" controls nodal-gap crispness. Palette stops are colour-piped once per frame then int-lerped per pixel (no rgba-cache thrash).
+- **Mobile/tablet audit fixes**: (1) `touch-action:none` on the stage for **all touch devices** (was phones only) so a tablet two-finger pinch drives the camera instead of the browser's page-zoom; (2) with the phone bottom-sheet open, the floating HUD tab now lifts to the top-right as a clear close control instead of overlapping the sheet; (3) rotating a phone into portrait now re-applies the Lite-perf profile + DPR cap (were first-load only).
+
+## V113 — Scene refinements: Chladni, Orbit, Laser (2026-07-18)
+
+- **Chladni Plate + Cyber Chladni — real Chladni figures, two distinct digital expressions.** Both now use the classic square-plate superposition F = cos(nπx)cos(mπy) ± cos(mπx)cos(nπy), so the pattern reads as ONE coherent symmetric figure, and both **metamorphose** (crossfade to a new mode on a beat, never pop). Plate = **stippled precision** (fine monochrome node dots on a near-black plate, mode readout, restrained shimmer). Nexus = **circuit flow-light** (contour-tangent neon segments so nodal lines read as curves, junction boxes at saddle points, additive tracer pulses running the contours, RGB-split glitch on mode change). Separable precompute keeps them cheap.
+- **Orbit Geometry — reverted to the flat concentric original and thinned.** Line weights follow existing scenes (rings ~0.5×, polygons ~0.4×, spokes 0.4 of the Line Weight control), lower alphas, smaller dots — a precise instrument, not neon hoops. (V112 gyroscope dropped.)
+- **Laser Perspective — full revert to the V111 look** (jittering vanishing-point beams; V112 fan-sweeps/strobe removed).
+- No other scenes touched.
+
+## V112 — Scene Upgrade Pack (2026-07-17)
+
+- **Hybrid Mix removed from scene transitions**: auto-transitions and beat-automation scene changes never pull you OUT of Hybrid Mix any more (they already never landed on it); manual buttons unchanged.
+- **Engine lift**: shared **BeatBus** beat/bar clock (events can land ON the kick); **additive neon pass** (`lighter` compositing) for true flashes; 3D layer fade now **honors the Trails slider** (DNA/Mobius no longer permanently dim); colour pipeline memo-cached; **dropdown option lists themed** (were washed-out white).
+- **Bottom-four rescue**:
+  - *Orbit Geometry* → 3-axis **gyroscope** (bass/mid/high ring groups, perspective depth, beat-quantised 45° rotation snaps, bass breathing, additive beat ring).
+  - *DNA Oscilloscope* → kick-driven **unzip** (rails part, rungs snap, re-anneal), depth-shaded front/back rails, high-band ionization sparks (additive).
+  - *Obsidian Graph* → **bass finally mapped**: beat gravity-lurch toward hubs with springy return, bass-widened mesh, band-coloured data pulses along edges, additive hub flashes.
+  - *Laser Perspective* → **club choreography**: beat-quantised mirrored fan sweeps with easing, downbeat strobe, volumetric beam cores + source haze cones, light running down beams.
+- **Flagship fixes**:
+  - *Spectrograph* → **real FFT** (64 log-spaced analyser bins drive rows + waterfall; synth stays as texture/fallback); waterfall lifted to visible.
+  - *Pixel Missile Barrage* → detonations **hold and fire on the beat** (mega waits for the downbeat).
+  - *Firework Multi-Burst* → **rocket rise phase** (sparkling ascent, detonates at apex on the beat) + additive flash core.
+  - *Iris Kaleidoscope* → alpha lift (was washed out), beat-quantised **aperture snaps**, downbeat light burst through the pupil.
+- Smoke test extended (hybrid-transition guard, BeatBus, kick-path passes over upgraded scenes).
+
 ## V111 — Public README (2026-07-17)
 
 - README rewritten for a public audience: enjoy-visuals-with-your-music framing, 30-second start, privacy note (audio analysed locally, nothing uploaded), phone install, About Me (DJ7 · Wilsonlicioussss), Instagram + blog links, BeatGenome cross-link, developer footer.

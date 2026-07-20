@@ -1,5 +1,5 @@
 const DJ_CONFIG = {
-  version: 'V111',
+  version: 'V120',
   product: 'Maestro V',
   brand: 'Alpha Omega Collective',
   scenes: [
@@ -13,7 +13,6 @@ const DJ_CONFIG = {
     { id: 'missile', label: 'Pixel Missile Barrage' },
     { id: 'laser', label: 'Laser Perspective' },
     { id: 'chladni', label: 'Chladni Plate Resonance' },
-    { id: 'chladnicyber', label: 'Cyber Chladni Nexus' },
     { id: 'slash', label: 'Spectrograph' },
     { id: 'atomic', label: 'Atomic Viral Matrix' },
     { id: 'iris', label: 'Iris Kaleidoscope' },
@@ -205,24 +204,14 @@ const DJ_CONFIG = {
       { id: 'laserSmoke', label: 'Smoke', min: 0, max: 100, step: 1, value: 24 }
     ],
     chladni: [
-      { id: 'chladniDensity', label: 'Grain Density', min: 20, max: 140, step: 1, value: 78 },
-      { id: 'chladniModeX', label: 'Mode X', min: 1, max: 10, step: 1, value: 3 },
-      { id: 'chladniModeY', label: 'Mode Y', min: 2, max: 12, step: 1, value: 5 },
-      { id: 'chladniThreshold', label: 'Node Width', min: 2, max: 100, step: 1, value: 34 },
-      { id: 'chladniDrift', label: 'Vibration Drift', min: 0, max: 100, step: 1, value: 46 },
-      { id: 'chladniScatter', label: 'Sand Scatter', min: 0, max: 100, step: 1, value: 36 },
-      { id: 'chladniLineAlpha', label: 'Line Definition', min: 0, max: 100, step: 1, value: 62 },
-      { id: 'chladniSparkle', label: 'Sparkle Amount', min: 0, max: 100, step: 1, value: 54 }
-    ],
-    chladnicyber: [
-      { id: 'cyberChladniDensity', label: 'Grid Density', min: 20, max: 120, step: 1, value: 72 },
-      { id: 'cyberChladniModeX', label: 'Mode X', min: 1, max: 10, step: 1, value: 4 },
-      { id: 'cyberChladniModeY', label: 'Mode Y', min: 2, max: 12, step: 1, value: 7 },
-      { id: 'cyberChladniThreshold', label: 'Node Width', min: 2, max: 100, step: 1, value: 28 },
-      { id: 'cyberChladniDrift', label: 'Circuit Drift', min: 0, max: 100, step: 1, value: 52 },
-      { id: 'cyberChladniPulse', label: 'Bass Pulse', min: 0, max: 100, step: 1, value: 60 },
-      { id: 'cyberChladniCircuit', label: 'Circuit Traces', min: 0, max: 100, step: 1, value: 66 },
-      { id: 'cyberChladniSparkle', label: 'Sparkle Amount', min: 0, max: 100, step: 1, value: 58 }
+      { id: 'chladniDensity', label: 'Line Detail', min: 20, max: 160, step: 1, value: 96 },
+      { id: 'chladniModeX', label: 'Mode X', min: 1, max: 10, step: 1, value: 4 },
+      { id: 'chladniModeY', label: 'Mode Y', min: 2, max: 12, step: 1, value: 7 },
+      { id: 'chladniThreshold', label: 'Line Glow', min: 2, max: 100, step: 1, value: 34 },
+      { id: 'chladniDrift', label: 'Plate Life', min: 0, max: 100, step: 1, value: 46 },
+      { id: 'chladniScatter', label: 'Mid Ripple', min: 0, max: 100, step: 1, value: 58 },
+      { id: 'chladniLineAlpha', label: 'Line Brightness', min: 0, max: 100, step: 1, value: 62 },
+      { id: 'chladniSparkle', label: 'High Shimmer', min: 0, max: 100, step: 1, value: 54 }
     ],
     slash: [
       { id: 'topoDensity', label: 'Sample Density', min: 24, max: 240, step: 1, value: 128 },

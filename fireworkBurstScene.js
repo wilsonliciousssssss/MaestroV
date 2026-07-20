@@ -22,13 +22,16 @@ function fwDot(ctx, x, y, size, color, alpha = 0.35) {
 const FireworkBurstScene = {
   bursts: [],
   cooldown: 0,
+  rockets: [],
   lastMegaAt: -999,
   reset() {
     this.bursts = [];
     this.cooldown = 0;
+    this.rockets = [];
     this.lastMegaAt = -999;
   },
   trimForHybrid() {
+    if (this.rockets && this.rockets.length > 6) this.rockets.splice(0, this.rockets.length - 6);
     if (this.bursts.length > 10) this.bursts.splice(0, this.bursts.length - 10);
   },
   pendingManualBursts: 0,
@@ -225,9 +228,40 @@ const FireworkBurstScene = {
     const shouldBurst = this.cooldown <= 0 && this.bursts.length < maxBursts && (Math.random() < urgency * 0.12 || audio.beat > 0.78);
     if (shouldBurst) {
       const spawnCount = audio.beat > 0.88 ? 2 : 1;
-      for (let i = 0; i < spawnCount && this.bursts.length < maxBursts; i++) this.spawnBurst(width, height, time, audio, {});
+      for (let i = 0; i < spawnCount && this.bursts.length + this.rockets.length < maxBursts + 4; i++) this.launchRocket(width, height, time, audio);
       this.cooldown = fwClamp(0.14 + (1 - spawnRate) * 0.82 - audio.high * 0.14, 0.05, 1.2);
     }
+  },
+
+  /* V112 — anticipation: shells RISE as sparkling rockets and detonate ON the beat at apex. */
+  launchRocket(width, height, time, audio) {
+    const tx = width * (0.1 + Math.random() * 0.8);
+    const ty = height * (0.12 + Math.random() * 0.55);
+    this.rockets.push({ x0: tx + (Math.random() - 0.5) * width * 0.12, tx, ty, t: 0, hold: 0, speed: 0.017 + Math.random() * 0.013, seed: Math.random() * Math.PI * 2 });
+  },
+
+  updateRockets(ctx, width, height, time, audio) {
+    if (!this.rockets || !this.rockets.length) return;
+    const p = VisualState.palette();
+    const bus = typeof BeatBus !== 'undefined' ? BeatBus : null;
+    this.rockets = this.rockets.filter((r) => {
+      if (r.t < 1) r.t = Math.min(1, r.t + r.speed * (1 + (audio.bass || 0) * 0.3));
+      const ease = r.t * (2 - r.t); /* decelerate into the apex */
+      const x = r.x0 + (r.tx - r.x0) * ease + Math.sin(time * 7 + r.seed) * 2.4 * (1 - r.t);
+      const y = (height + 12) + (r.ty - height - 12) * ease;
+      const tailY = y + 26 + 40 * (1 - r.t);
+      fwLine(ctx, x, y, x + Math.sin(time * 9 + r.seed) * 1.6, tailY, p.a, 0.4 + (audio.high || 0) * 0.2, 1.1);
+      fwDot(ctx, x, y, 1.6 + (audio.high || 0) * 1.4, p.a, 0.85);
+      for (let i = 0; i < 3; i++) fwDot(ctx, x + (Math.random() - 0.5) * 7, y + 8 + Math.random() * 22, 0.7 + Math.random(), i % 2 ? p.b : p.c, 0.35);
+      if (r.t >= 1) {
+        r.hold += 1;
+        if ((bus && bus.active) || r.hold > 20) {
+          this.spawnBurst(width, height, time, audio, { x: r.tx, y: r.ty });
+          return false;
+        }
+      }
+      return true;
+    });
   },
 
   spawnChildBursts(burst, time, audio, width, height) {
@@ -291,6 +325,15 @@ const FireworkBurstScene = {
     const age = time - burst.born;
     const t = fwClamp(age / burst.life, 0, 1);
     const fade = 1 - t;
+    if (t < 0.14 && typeof additiveDraw === 'function') {
+      additiveDraw(ctx, () => {
+        const k = 1 - t / 0.14;
+        ctx.fillStyle = rgba(p.a, 0.5 * k * (burst.mega ? 1.2 : 1));
+        ctx.beginPath();
+        ctx.arc(burst.x, burst.y, burst.radius * (0.1 + (1 - k) * 0.32) * (burst.mega ? 1.6 : 1), 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
     const bassBoost = 1 + audio.bass * 0.32 + (burst.mega ? 0.16 : 0);
     const midBoost = 1 + audio.mid * 0.38 + (burst.style === 'chrysanthemum' ? 0.08 : 0);
     const highBoost = 1 + audio.high * 0.48 + (burst.style === 'spiral' ? 0.12 : 0);
@@ -394,6 +437,7 @@ const FireworkBurstScene = {
       const y = height * (0.14 + i * 0.12);
       fwLine(ctx, 0, y, width, y, i % 2 ? p.a : p.c, 0.015 + audio.high * 0.016, 0.8, [4, 10]);
     }
+    this.updateRockets(ctx, width, height, time, audio);
     this.bursts = this.bursts.filter((burst) => time - burst.born < burst.life + burst.dustDuration + 0.04);
     this.bursts.forEach((burst) => this.drawBurst(ctx, burst, time, audio));
   }

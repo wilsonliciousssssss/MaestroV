@@ -16,6 +16,7 @@ function loop() {
   const time = performance.now() * 0.001;
   AudioEngine.update();
   const audio = AudioEngine.snapshot();
+  if (typeof BeatBus !== 'undefined') BeatBus.update(audio);
   if (typeof RuntimeMonitor !== 'undefined') RuntimeMonitor.update(time, audio);
   HudController.update();
   ThreeLayer.update(time, audio);

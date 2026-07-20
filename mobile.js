@@ -184,7 +184,11 @@ const MaestroMobile = (() => {
       watchHudOpen();
       bindGestures();
       if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-        window.addEventListener('resize', syncBodyClasses);
+        window.addEventListener('resize', () => {
+          syncBodyClasses();
+          /* rotating into portrait phone should re-apply the light profile + DPR cap */
+          if (isPhone()) { capDpr(); applyMobileDefaults(); }
+        });
       }
     } catch (e) {
       if (typeof console !== 'undefined') console.error('[Maestro V mobile init]', e);

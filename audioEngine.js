@@ -28,6 +28,21 @@ const AudioEngine = {
     return this.context;
   },
 
+  /* V112 — real spectrum: log-spaced bins from the analyser (0..1), or null in fallback mode. */
+  spectrum(bins = 48) {
+    if (!this.enabled || !this.analyser || !this.data) return null;
+    const n = this.data.length;
+    const out = new Array(bins);
+    for (let i = 0; i < bins; i++) {
+      const f0 = Math.max(1, Math.floor(Math.pow(n, i / bins)));
+      const f1 = Math.max(f0 + 1, Math.floor(Math.pow(n, (i + 1) / bins)));
+      let sum = 0;
+      for (let k = f0; k < f1 && k < n; k++) sum += this.data[k];
+      out[i] = sum / ((f1 - f0) * 255);
+    }
+    return out;
+  },
+
   stopCurrentStream() {
     if (this.source) {
       try { this.source.disconnect(); } catch (error) { /* already disconnected — safe to ignore during teardown */ }

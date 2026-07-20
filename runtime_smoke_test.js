@@ -156,4 +156,40 @@ if (VisualState.controls.density > 110) throw new Error('Mobile density trim fai
 MaestroMobile.cycleScene(1);
 VisualState.perfIndex = prevPerf; VisualState.setControl('density', prevDensity);
 console.log('OK mobile responsive layer');
+/* V112 asserts */
+if (typeof BeatBus === 'undefined') throw new Error('BeatBus missing');
+BeatBus.update({ beat: 0.9 });
+if (!BeatBus.active || BeatBus.count !== 1) throw new Error('BeatBus edge detect failed');
+BeatBus.update({ beat: 0.9 });
+if (BeatBus.active) throw new Error('BeatBus should require a falling edge');
+BeatBus.update({ beat: 0.1 });
+BeatBus.update({ beat: 0.8 });
+if (BeatBus.count !== 2) throw new Error('BeatBus count failed');
+for (let i = 0; i < 40; i++) { if (VisualState.nextScene('random') === 'hybrid') throw new Error('nextScene returned hybrid'); }
+VisualState.setScene('hybrid');
+VisualState.transitionEnabled = true;
+VisualState.lastSceneSwitchAt = -1e9;
+if (VisualState.maybeAdvanceScene(1e9) !== false || VisualState.scene !== 'hybrid') throw new Error('auto transition must not leave hybrid');
+VisualState.transitionEnabled = false;
+/* exercise the kick paths of upgraded scenes with an active beat frame */
+for (const id of ['orbit', 'dna', 'obsidian', 'laser', 'iris', 'firework', 'missile', 'slash']) {
+  BeatBus.update({ beat: 0.1 });
+  BeatBus.update({ beat: 0.95 });
+  VisualState.setScene(id);
+  ThreeLayer.update(2.2, { bass: .8, mid: .5, high: .7, beat: .95, bpm: 128 });
+  PixiLayer.update(2.2, { bass: .8, mid: .5, high: .7, beat: .95, bpm: 128 });
+}
+console.log('OK V112 upgrades (hybrid guard, BeatBus, kick paths)');
+/* V113: run the refined scenes across a mode-change with active beats */
+let _drawErrs = 0; const _origErr = console.error; console.error = (...a) => { if (String(a[0]).includes('Scene draw skipped')) _drawErrs++; _origErr.apply(console, a); };
+for (const id of ['orbit', 'chladni', 'laser']) {
+  VisualState.setScene(id);
+  for (let f = 0; f < 8; f++) {
+    BeatBus.update({ beat: f % 2 ? 0.95 : 0.1 });
+    PixiLayer.update(2 + f, { bass: .7, mid: .5, high: .6, beat: f % 2 ? 0.95 : 0.1, bpm: 128 });
+  }
+}
+console.error = _origErr;
+if (_drawErrs > 0) throw new Error('A refined scene threw during draw (' + _drawErrs + ' skips) — check chladni/orbit/laser');
+console.log('OK V113 refined scenes (chladni metamorphosis, orbit, laser) — 0 draw skips');
 console.log('Maestro V runtime smoke test passed');
