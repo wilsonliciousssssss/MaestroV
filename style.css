@@ -1020,7 +1020,9 @@ body.phone-ui.hud-open .quick-bar { display: none; }
 body.touch-ui #stage { touch-action: none; } /* stop tablet/phone pinch hijacking browser zoom */
 body.phone-ui #stage { touch-action: none; }
 /* when the bottom sheet is open, lift the HUD tab to the top-right as a clear close control */
-body.phone-ui.hud-open .hud-tab { top: calc(10px + env(safe-area-inset-top)); bottom: auto; }
+/* open state: HUD tab docks right above the tools sheet (thumb zone), not at the top */
+body.phone-ui.hud-open .hud-tab { top: auto; bottom: calc(min(62dvh, 560px) + 10px); }
+body.phone-ui.hud-open.sheet-tall .hud-tab { bottom: calc(94dvh - env(safe-area-inset-top) + 6px); }
 body.phone-ui #brandMark { width: 24px; height: 24px; }
 body.phone-ui .hud-header h1 { font-size: 17px; }
 body.phone-ui .brand-right { flex-direction: row; align-items: center; gap: 10px; }

@@ -130,7 +130,10 @@ const MaestroMobile = (() => {
     grip.type = 'button';
     grip.className = 'sheet-grip';
     if (typeof grip.setAttribute === 'function') grip.setAttribute('aria-label', 'Expand or shrink the tools sheet');
-    if (typeof grip.addEventListener === 'function') grip.addEventListener('click', () => hud.classList.toggle('hud-tall'));
+    if (typeof grip.addEventListener === 'function') grip.addEventListener('click', () => {
+      const tall = hud.classList.toggle('hud-tall');
+      if (document.body && document.body.classList) document.body.classList.toggle('sheet-tall', tall);
+    });
     if (typeof hud.insertBefore === 'function' && hud.firstChild) hud.insertBefore(grip, hud.firstChild);
     else hud.appendChild(grip);
   }
@@ -140,7 +143,11 @@ const MaestroMobile = (() => {
     const hud = document.getElementById('hud');
     const tab = document.getElementById('hudTab');
     if (!hud || !document.body) return;
-    const sync = () => document.body.classList.toggle('hud-open', hud.classList.contains('open'));
+    const sync = () => {
+      const open = hud.classList.contains('open');
+      document.body.classList.toggle('hud-open', open);
+      if (!open) { hud.classList.remove('hud-tall'); document.body.classList.remove('sheet-tall'); }
+    };
     if (tab && typeof tab.addEventListener === 'function') tab.addEventListener('click', () => setTimeout(sync, 0));
     if (typeof document.addEventListener === 'function') {
       document.addEventListener('keydown', (e) => { if ((e.key || '').toLowerCase() === 'h') setTimeout(sync, 0); });

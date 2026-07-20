@@ -2,6 +2,10 @@
 
 Newest first. Public product name: **Maestro V** (Alpha Omega Collective). Internal build numbers continue the original engine series.
 
+## V121 — Phone: HUD toggle docks above the sheet (2026-07-20)
+
+- On phones, when the tools sheet is open the **HUD toggle button now sits just above the sheet's top edge** (thumb zone) instead of jumping to the top-right corner. It tracks the sheet height — short (62dvh) or expanded (94dvh via the grip). Closing the sheet resets it to the short state and returns the toggle to its floating position above the quick bar.
+
 ## V120 — Chladni Plate: band-readout numbers around the box (2026-07-20)
 
 - Added a **live HUD readout ringing the plate**: numeric ticks along each edge that pulse in value + brightness with the audio — **bottom = LOW/bass, top = HIGH, left & right = MID** — plus explicit `LO / MD / HI` percent labels above the box. Channel-coloured, mono, drawn inside the plate frame. Cosmetic overlay only.

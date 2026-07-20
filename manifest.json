@@ -1,5 +1,5 @@
 {
-  "version": "V120",
+  "version": "V121",
   "name": "Maestro V",
   "mode": "offline-hybrid",
   "features": [
@@ -127,7 +127,8 @@
     "removed-cyber-chladni-nexus",
     "chladni-plate-vibrating-nodal-lines",
     "chladni-plate-multi-contour",
-    "chladni-band-readout-numbers"
+    "chladni-band-readout-numbers",
+    "phone-hud-tab-above-sheet"
   ],
   "audioSources": [
     "microphone",
