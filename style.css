@@ -1033,3 +1033,15 @@ select option {
   color: var(--ao-white);
 }
 select option:checked { background: var(--ao-ch); color: var(--ao-on-ch); }
+
+
+/* ============================================================
+   V122 — panel-heading brackets + touch header stacking
+   ============================================================ */
+/* Headings read "[ PERFORMANCE ]" — text begins after [ and ends before ] */
+.panel-toggle span::before { content: "[ "; color: var(--ao-ch); font-weight: 800; }
+.panel-toggle span::after  { content: " ]"; color: var(--ao-ch); font-weight: 800; }
+
+/* Phone + tablet: stack the READY pill + channel dots BELOW the MAESTRO V title */
+body.touch-ui .hud-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+body.touch-ui .brand-right { flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; align-self: flex-start; }

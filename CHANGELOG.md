@@ -2,6 +2,11 @@
 
 Newest first. Public product name: **Maestro V** (Alpha Omega Collective). Internal build numbers continue the original engine series.
 
+## V122 — Bracketed panel headings + touch header stacking (2026-07-20)
+
+- **Panel headings now read "[ PERFORMANCE ]"** — the title begins after a channel-coloured `[` and ends before a `]`, framing each collapsible heading for cleaner readability.
+- **Phone/tablet header**: the **READY status pill and the channel-colour dots now sit BELOW the MAESTRO V title** (header stacks vertically on touch devices) instead of crowding to the right of it.
+
 ## V121 — Phone: HUD toggle docks above the sheet (2026-07-20)
 
 - On phones, when the tools sheet is open the **HUD toggle button now sits just above the sheet's top edge** (thumb zone) instead of jumping to the top-right corner. It tracks the sheet height — short (62dvh) or expanded (94dvh via the grip). Closing the sheet resets it to the short state and returns the toggle to its floating position above the quick bar.

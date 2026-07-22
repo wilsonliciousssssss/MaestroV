@@ -1,9 +1,9 @@
-/* Maestro V service worker — V121.
+/* Maestro V service worker — V122.
    Network-first for same-origin GETs, cache fallback for offline use.
    Cache name is versioned; bump with each release. */
-const CACHE = 'maestrov-v121';
+const CACHE = 'maestrov-v122';
 const CORE = [
-  './', './index.html', './style.css?v=121', './app.webmanifest',
+  './', './index.html', './style.css?v=122', './app.webmanifest',
   './icon-192.png', './icon-512.png'
 ];
 
